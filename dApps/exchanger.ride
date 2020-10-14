@@ -35,9 +35,9 @@ func fund() = {
         }
     if (isDefined(getBoolean(this, "status"))) then
             throw("already active")
-    else{
-        let shareTokenName = "share_token_" + toString(this)
-        let shareTokenInitialAmount =  pow(tokenReceiveAmountA,digitTokenA,5,1,4,HALFDOWN)*pow(tokenReceiveAmountB,digitTokenB,5,1,4,HALFDOWN)
+    else{    
+        let shareTokenName = "ShareT_" + takeRight(toString(this),5)
+        let shareTokenInitialAmount =  pow(tokenReceiveAmountA,digitTokenA,5,1,0,HALFDOWN)*pow(tokenReceiveAmountB,digitTokenB,5,1,0,HALFDOWN)
         let shareTokenAssetId = calculateAssetId(Issue(shareTokenName,shareTokenName,shareTokenInitialAmount,8,true))
         let assetIdTokenStringA = match (assetIdReceivedA) {
             case t:Unit => "WAVES" 
@@ -57,7 +57,7 @@ func fund() = {
             IntegerEntry("comission",comission),
             IntegerEntry("comissionScaleDelimiter",comissionScaleDelimiter),
             StringEntry("version", version),
-            Issue(shareTokenName,shareTokenName,shareTokenInitialAmount,8,true),
+            Issue(shareTokenName,shareTokenName,shareTokenInitialAmount*100000000,8,true),
             ScriptTransfer(contextObj.caller, shareTokenInitialAmount, shareTokenAssetId),
             BinaryEntry("share_token_id", shareTokenAssetId),
             IntegerEntry("share_token_supply", shareTokenInitialAmount)
