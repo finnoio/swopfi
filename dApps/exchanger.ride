@@ -38,7 +38,7 @@ func fund() = {
     else{    
         let shareTokenName = "ShareT_" + takeRight(toString(this),5)
         let shareTokenInitialAmount =  pow(tokenReceiveAmountA,digitTokenA,5,1,0,HALFDOWN)*pow(tokenReceiveAmountB,digitTokenB,5,1,0,HALFDOWN)
-        let shareTokenAssetId = calculateAssetId(Issue(shareTokenName,shareTokenName,shareTokenInitialAmount,8,true))
+        let shareTokenAssetId = calculateAssetId(Issue(shareTokenName,shareTokenName,shareTokenInitialAmount*100000000,8,true))
         let assetIdTokenStringA = match (assetIdReceivedA) {
             case t:Unit => "WAVES" 
             case t:ByteVector => toBase58String(value(assetIdReceivedA))
@@ -58,9 +58,9 @@ func fund() = {
             IntegerEntry("comissionScaleDelimiter",comissionScaleDelimiter),
             StringEntry("version", version),
             Issue(shareTokenName,shareTokenName,shareTokenInitialAmount*100000000,8,true),
-            ScriptTransfer(contextObj.caller, shareTokenInitialAmount, shareTokenAssetId),
+            ScriptTransfer(contextObj.caller, shareTokenInitialAmount*100000000, shareTokenAssetId),
             BinaryEntry("share_token_id", shareTokenAssetId),
-            IntegerEntry("share_token_supply", shareTokenInitialAmount)
+            IntegerEntry("share_token_supply", shareTokenInitialAmount*100000000)
         ]
     } 
 }
