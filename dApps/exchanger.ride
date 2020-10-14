@@ -10,6 +10,8 @@ let tokenShareSupply = getIntegerValue(this,"share_token_supply")
 let comission = 2000 #comission/comissionScaleDelimiter = 0.2
 let comissionScaleDelimiter = 10000
 let version = "0.0.2" 
+let scaleValue8 = 100000000
+let scaleValue8Digits = 8
 func assetId (asset: String) ={
     if asset == "WAVES" then unit else asset.fromBase58String()
 }
@@ -37,7 +39,7 @@ func fund() = {
             throw("already active")
     else{    
         let shareTokenName = "ShareT_" + takeRight(toString(this),5)
-        let shareTokenInitialAmount =  pow(tokenReceiveAmountA,digitTokenA,5,1,0,HALFDOWN)*pow(tokenReceiveAmountB,digitTokenB,5,1,0,HALFDOWN)
+        let shareTokenInitialAmount =  pow(tokenReceiveAmountA,digitTokenA,5,1,scaleValue8Digits/2,HALFDOWN)*pow(tokenReceiveAmountB,digitTokenB,5,1,scaleValue8Digits/2,HALFDOWN)/scaleValue8
         let shareTokenAssetId = calculateAssetId(Issue(shareTokenName,shareTokenName,shareTokenInitialAmount*100000000,8,true))
         let assetIdTokenStringA = match (assetIdReceivedA) {
             case t:Unit => "WAVES" 

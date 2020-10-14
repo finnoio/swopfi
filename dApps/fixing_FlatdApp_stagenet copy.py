@@ -27,24 +27,24 @@ pw.setNode(node="https://nodes-stagenet.wavesnodes.com", chain_id="S")
 
 ##if true then  throw(toString(invariantCalc(amountTokenA-amountToSendEstimated,amountTokenB + tokenReceiveAmount)) + " "+toString(invariant)) else
     
-test2 = pw.Address(seed = "12345678921223456710")
+test2 = pw.Address(seed = "1234567892122345672310")
 moneySeed = pw.Address(seed = "mutual essence merry loop margin morning involve vicious air post table faculty primary idea buffalo")
 
-# transfer = moneySeed.sendWaves(test2,int(10**8))
-# wait_for_resource_available(transfer["id"],1000)
-# print(transfer)
+transfer = moneySeed.sendWaves(test2,int(10**8))
+wait_for_resource_available(transfer["id"],1000)
+print(transfer)
 
-# setScript = test2.setScript(script,txFee=1400000)
-# #print(setScript)
-# wait_for_resource_available(setScript["id"],1000)
+setScript = test2.setScript(script,txFee=1400000)
+#print(setScript)
+wait_for_resource_available(setScript["id"],1000)
 
 
-# fund = moneySeed.invokeScript(test2.address, "fund", [], [
-#     {"amount": int(100000*1e8), "assetId": "qTtranpN3eE8UDZ5kehxvHHtUggXCMTyANGv3RtvaKi" },{"amount": int(100000*1e8), "assetId": "CdNeFRKeotuA9pnS2AaEAKPUGVPT56e5FXebDuGU8XMK"}], txFee=100900000)
-# print(fund)
-# statusFund = wait_for_resource_available(
-#     fund["id"], 100)
-# print(fund)
+fund = moneySeed.invokeScript(test2.address, "fund", [], [
+    {"amount": int(100000*1e8), "assetId": "qTtranpN3eE8UDZ5kehxvHHtUggXCMTyANGv3RtvaKi" },{"amount": int(100000*1e8), "assetId": "CdNeFRKeotuA9pnS2AaEAKPUGVPT56e5FXebDuGU8XMK"}], txFee=100900000)
+print(fund)
+statusFund = wait_for_resource_available(
+    fund["id"], 100)
+print(fund)
 
 
 # invoke = moneySeed.invokeScript(test2.address, "exchanger", [{"type": "integer", "value": int(9990004894) },{"type": "integer", "value":int(9990004894)}], [{ "amount": 10000000000, "assetId": "qTtranpN3eE8UDZ5kehxvHHtUggXCMTyANGv3RtvaKi" }], txFee=1000000)
@@ -56,16 +56,16 @@ moneySeed = pw.Address(seed = "mutual essence merry loop margin morning involve 
 # print(invoke)
 # wait_for_resource_available(invoke["id"],1000)
 
-invoke = moneySeed.invokeScript(test2.address, "exchanger", [{"type": "integer", "value": int(113800618343) },{"type": "integer", "value":int(113862618343)}], [{ "amount": 100000000000, "assetId": "CdNeFRKeotuA9pnS2AaEAKPUGVPT56e5FXebDuGU8XMK" }], txFee=1000000)
-print(invoke)
-wait_for_resource_available(invoke["id"],1000)
+# invoke = moneySeed.invokeScript(test2.address, "exchanger", [{"type": "integer", "value": int(113800618343) },{"type": "integer", "value":int(113862618343)}], [{ "amount": 100000000000, "assetId": "CdNeFRKeotuA9pnS2AaEAKPUGVPT56e5FXebDuGU8XMK" }], txFee=1000000)
+# print(invoke)
+# wait_for_resource_available(invoke["id"],1000)
 
-replanish = moneySeed.invokeScript(test2.address, "replenishment", [], [
-    {"amount": 10896199381657
-, "assetId": "qTtranpN3eE8UDZ5kehxvHHtUggXCMTyANGv3RtvaKi"},{"amount": 9156878251989, "assetId": "CdNeFRKeotuA9pnS2AaEAKPUGVPT56e5FXebDuGU8XMK"}], txFee=1000000)
-print(replanish)
-statusreplanish = wait_for_resource_available(
-    replanish["id"], 1000)
+# replanish = moneySeed.invokeScript(test2.address, "replenishment", [], [
+#     {"amount": 10896199381657
+# , "assetId": "qTtranpN3eE8UDZ5kehxvHHtUggXCMTyANGv3RtvaKi"},{"amount": 9156878251989, "assetId": "CdNeFRKeotuA9pnS2AaEAKPUGVPT56e5FXebDuGU8XMK"}], txFee=1000000)
+# print(replanish)
+# statusreplanish = wait_for_resource_available(
+#     replanish["id"], 1000)
 
 
 

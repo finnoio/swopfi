@@ -1,3 +1,3 @@
 def dAppScript():
-    script = open("exchangerFlat.ride", "r").read()
+    script = open("exchanger.ride", "r").read()
     return script
