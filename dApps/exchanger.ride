@@ -1,0 +1,150 @@
+{-# STDLIB_VERSION 4 #-}
+{-# CONTENT_TYPE DAPP #-}
+{-# SCRIPT_TYPE ACCOUNT #-}
+let IdTokenA =  getStringValue(this,"assetIdTokenA")
+let IdTokenB =  getStringValue(this,"assetIdTokenB")
+let amountTokenB = getIntegerValue(this, "amountTokenB")
+let amountTokenA = getIntegerValue(this, "amountTokenA")
+let assetIdTokenShare = getBinaryValue(this,"share_token_id")
+let tokenShareSupply = getIntegerValue(this,"share_token_supply")
+let comission = 2000 #comission/comissionScaleDelimiter = 0.2
+let comissionScaleDelimiter = 10000
+let version = "0.0.2" 
+func assetId (asset: String) ={
+    if asset == "WAVES" then unit else asset.fromBase58String()
+}
+
+let assetIdTokenA = assetId(IdTokenA)
+let assetIdTokenB =  assetId(IdTokenB)
+
+@Callable(contextObj)
+func fund() = {
+    let paymentA = value(contextObj.payments[0])
+    let paymentB = value(contextObj.payments[1])
+    let assetIdReceivedA = paymentA.assetId
+    let tokenReceiveAmountA = paymentA.amount
+    let assetIdReceivedB = paymentB.assetId
+    let tokenReceiveAmountB = paymentB.amount
+    let  digitTokenA = match(assetIdReceivedA) {  
+            case p:Unit=> 8
+            case p:ByteVector => value(assetInfo(p)).decimals
+        }
+    let  digitTokenB = match(assetIdReceivedB) {  
+            case p:Unit=> 8
+            case p:ByteVector => value(assetInfo(p)).decimals
+        }
+    if (isDefined(getBoolean(this, "status"))) then
+            throw("already active")
+    else{
+        let shareTokenName = "share_token_" + toString(this)
+        let shareTokenInitialAmount =  pow(tokenReceiveAmountA,digitTokenA,5,1,4,HALFDOWN)*pow(tokenReceiveAmountB,digitTokenB,5,1,4,HALFDOWN)
+        let shareTokenAssetId = calculateAssetId(Issue(shareTokenName,shareTokenName,shareTokenInitialAmount,8,true))
+        let assetIdTokenStringA = match (assetIdReceivedA) {
+            case t:Unit => "WAVES" 
+            case t:ByteVector => toBase58String(value(assetIdReceivedA))
+          }
+        let assetIdTokenStringB = match(assetIdReceivedB) {
+            case t:Unit => "WAVES" 
+            case t:ByteVector => toBase58String(value(assetIdReceivedB))
+          }          
+        [
+            IntegerEntry("amountTokenA", tokenReceiveAmountA ),
+            IntegerEntry("amountTokenB", tokenReceiveAmountB ),
+            StringEntry("assetIdTokenA", assetIdTokenStringA),
+            StringEntry("assetIdTokenB", assetIdTokenStringB),
+            IntegerEntry("exchange_count", 0),
+            BooleanEntry("status", true),
+            IntegerEntry("comission",comission),
+            IntegerEntry("comissionScaleDelimiter",comissionScaleDelimiter),
+            StringEntry("version", version),
+            Issue(shareTokenName,shareTokenName,shareTokenInitialAmount,8,true),
+            ScriptTransfer(contextObj.caller, shareTokenInitialAmount, shareTokenAssetId),
+            BinaryEntry("share_token_id", shareTokenAssetId),
+            IntegerEntry("share_token_supply", shareTokenInitialAmount)
+        ]
+    } 
+}
+
+@Callable(contextObj)
+func replenishment() = {
+    let paymentA = value(contextObj.payments[0])
+    let paymentB = value(contextObj.payments[1])
+    let assetIdReceivedA = paymentA.assetId
+    let tokenReceiveAmountA = paymentA.amount
+    let assetIdReceivedB = paymentB.assetId
+    let tokenReceiveAmountB = paymentB.amount
+    let dAppTokensAmountA = getIntegerValue(this, "amountTokenA")
+    let dAppTokensAmountB = getIntegerValue(this, "amountTokenB")
+    if (assetIdReceivedA != assetIdTokenA || assetIdReceivedB != assetIdTokenB ) then throw("incorrect assets") else
+    # fraction should be equal 1(multiple by 1000) if depositor replanish with proporion according to actual price
+    let tokenRatio = fraction(tokenReceiveAmountA,1000000000000*1000,dAppTokensAmountA)/fraction(tokenReceiveAmountB,1000000000000,dAppTokensAmountB)
+    # 1 percent differnce is acceptable
+    if ( !(tokenRatio > 990 && tokenRatio < 1010) ) then throw("incorrect assets amount") else 
+    let shareTokenToPayAmount = fraction(tokenReceiveAmountA,tokenShareSupply,dAppTokensAmountA)
+    if ( shareTokenToPayAmount == 0 ) then throw("you try replansish with very small amount") else 
+    [
+        Reissue(assetIdTokenShare,shareTokenToPayAmount,true),
+        ScriptTransfer(contextObj.caller, shareTokenToPayAmount, assetIdTokenShare),
+        IntegerEntry("share_token_supply", tokenShareSupply + shareTokenToPayAmount),
+        IntegerEntry("amountTokenA", dAppTokensAmountA + tokenReceiveAmountA),
+        IntegerEntry("amountTokenB", dAppTokensAmountB + tokenReceiveAmountB)
+    ]
+}
+
+@Callable(contextObj)
+func withdraw() =   {
+    let dAppTokensAmountA = getIntegerValue(this, "amountTokenA")
+    let dAppTokensAmountB = getIntegerValue(this, "amountTokenB")
+    let payment = value(contextObj.payments[0])
+    let assetIdReceived = payment.assetId
+    let tokenReceiveAmount = payment.amount
+    if assetIdTokenShare !=  assetIdReceived then throw("you need to attach share token for this dApp " + toBase58String(assetIdTokenShare)) else
+    let tokensToPayA = fraction(tokenReceiveAmount,dAppTokensAmountA,tokenShareSupply)
+    let tokensToPayB = fraction(tokenReceiveAmount,dAppTokensAmountB,tokenShareSupply)
+    [      
+        ScriptTransfer(contextObj.caller, tokensToPayA, assetIdTokenA),
+        ScriptTransfer(contextObj.caller, tokensToPayB, assetIdTokenB),
+        IntegerEntry("amountTokenA", dAppTokensAmountA - tokensToPayA),
+        IntegerEntry("amountTokenB", dAppTokensAmountB - tokensToPayB),
+        IntegerEntry("share_token_supply", tokenShareSupply - tokenReceiveAmount),
+        Burn(assetIdTokenShare,tokenReceiveAmount)
+    ]
+}
+@Callable(contextObj)
+func exchanger( minTokenRecieve: Int) = {
+    #if(comission < 0 || comission >1000) then(throw("incorrect comission value")) else
+    let payment = value(contextObj.payments[0])
+    let assetIdReceived = payment.assetId
+    let tokenReceiveAmount = payment.amount
+    let count =  value(getInteger(this, "exchange_count"))
+    if(assetIdReceived == assetIdTokenB)
+        then
+        (
+            #let tokenSendAmount =  (AmountTokenA*scale - fraction(amountTokenB,scale*AmountTokenA,tokenReceiveAmount + amountTokenB))/scale
+            let tokenSendAmount =  (fraction(amountTokenA,tokenReceiveAmount,tokenReceiveAmount + amountTokenB)*(comissionScaleDelimiter-comission))/comissionScaleDelimiter
+            if(tokenSendAmount < minTokenRecieve) then(throw("Price has changed dramaticaly. Receiving token amount don't satisfy specified price level")) else
+            let assetIdSent = assetIdTokenA
+            # successful execution result is updating information about actual balance and supply into the state and transfer tokens to the caller
+            [
+                IntegerEntry("amountTokenA", amountTokenA -  tokenSendAmount ),
+                IntegerEntry("amountTokenB",  amountTokenB + tokenReceiveAmount),
+                IntegerEntry("exchange_count",  count + 1),
+                ScriptTransfer(contextObj.caller, tokenSendAmount, assetIdSent)
+            ]
+        )
+    else ( if (assetIdReceived == assetIdTokenA)
+        then
+            (
+            let tokenSendAmount =  (fraction(amountTokenB,tokenReceiveAmount,tokenReceiveAmount + amountTokenA)*(comissionScaleDelimiter-comission))/comissionScaleDelimiter
+            if(tokenSendAmount < minTokenRecieve) then(throw("Price has changed dramaticaly. Receiving token amount don't satisfy specified price level")) else
+            let assetIdSent = assetIdTokenB
+            # successful execution result is updating information about actual balance and supply into the state and transfer tokens to the caller
+            [
+            IntegerEntry("amountTokenA", amountTokenA + tokenReceiveAmount),
+            IntegerEntry("amountTokenB", amountTokenB - tokenSendAmount),
+            IntegerEntry("exchange_count",  count + 1),
+            ScriptTransfer(contextObj.caller, tokenSendAmount, assetIdSent)
+            ]   
+        )
+    else throw("Asset is not allowed"))
+}
