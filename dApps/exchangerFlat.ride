@@ -112,8 +112,9 @@ func fund() =   {
     else{
 
         let shareTokenName = "ShareT_" + takeRight(toString(this),5)
-        let shareTokenInitialAmount =  pow(tokenReceiveAmountA,digitTokenA,5,1,scaleValue8Digits/2,HALFDOWN)*pow(tokenReceiveAmountB,digitTokenB,5,1,scaleValue8Digits/2,HALFDOWN)/scaleValue8
-        let shareTokenAssetId = calculateAssetId(Issue(shareTokenName,shareTokenName,shareTokenInitialAmount*100000000,8,true))
+        # we save 16 digit info with using scaleValue8Digits in pow functions. We divide /scaleValue8 to delete 8 digits and another 8 digits we define as digits in shareToken in Issue tx
+        let shareTokenInitialAmount =  pow(tokenReceiveAmountA,digitTokenA,5,1,scaleValue8Digits,HALFDOWN)*pow(tokenReceiveAmountB,digitTokenB,5,1,scaleValue8Digits,HALFDOWN)/scaleValue8
+        let shareTokenAssetId = calculateAssetId(Issue(shareTokenName,shareTokenName,shareTokenInitialAmount,8,true))
         let assetIdTokenStringA = match (assetIdReceivedA) {
             case t:Unit => "WAVES" 
             case t:ByteVector => toBase58String(value(assetIdReceivedA))
@@ -136,10 +137,10 @@ func fund() =   {
             IntegerEntry("comission",comission),
             IntegerEntry("comissionScaleDelimiter",comissionScaleDelimiter),
             StringEntry("version", version),
-            Issue(shareTokenName,shareTokenName,shareTokenInitialAmount*100000000,8,true),
-            ScriptTransfer(contextObj.caller, shareTokenInitialAmount*100000000, shareTokenAssetId),
+            Issue(shareTokenName,shareTokenName,shareTokenInitialAmount,8,true),
+            ScriptTransfer(contextObj.caller, shareTokenInitialAmount, shareTokenAssetId),
             StringEntry("share_token_id", toBase58String(shareTokenAssetId)),
-            IntegerEntry("share_token_supply", shareTokenInitialAmount*100000000)
+            IntegerEntry("share_token_supply", shareTokenInitialAmount)
         ]
     } 
 }
