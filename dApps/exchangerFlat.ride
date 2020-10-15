@@ -113,7 +113,7 @@ func fund() =   {
 
         let shareTokenName = "ShareT_" + takeRight(toString(this),5)
         # we save 16 digit info with using scaleValue8Digits in pow functions. We divide /scaleValue8 to delete 8 digits and another 8 digits we define as digits in shareToken in Issue tx
-        let shareTokenInitialAmount =  pow(tokenReceiveAmountA,digitTokenA,5,1,scaleValue8Digits,HALFDOWN)*pow(tokenReceiveAmountB,digitTokenB,5,1,scaleValue8Digits,HALFDOWN)/scaleValue8
+        let shareTokenInitialAmount =  fraction(pow(tokenReceiveAmountA,digitTokenA,5,1,scaleValue8Digits,HALFDOWN),pow(tokenReceiveAmountB,digitTokenB,5,1,scaleValue8Digits,HALFDOWN),scaleValue8)
         let shareTokenAssetId = calculateAssetId(Issue(shareTokenName,shareTokenName,shareTokenInitialAmount,8,true))
         let assetIdTokenStringA = match (assetIdReceivedA) {
             case t:Unit => "WAVES" 
