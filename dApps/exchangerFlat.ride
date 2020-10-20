@@ -6,7 +6,6 @@ let IdTokenB =  getStringValue(this,"assetIdTokenB")
 let IdTokenShare = getStringValue(this,"share_token_id")
 let dAppTokensAmountA = getIntegerValue(this, "amountTokenA")
 let dAppTokensAmountB = getIntegerValue(this, "amountTokenB")
-
 let tokenShareSupply = getIntegerValue(this,"share_token_supply")
 let comission = 0 #comission/comissionScaleDelimiter = 0.00
 let comissionScaleDelimiter = 10000
@@ -15,6 +14,8 @@ let invariant = getIntegerValue(this,"invariant")
 let scaleValue8 = 100000000
 let scaleValue8Digits = 8
 let scaleValue12 = 1000000000000
+let ratioThresholdMax = 100000000
+let ratioThresholdMin = 99999000
 let alpha = 15 #model coef alpha = 0.15 
 let alphaDigits = 2
 
@@ -145,8 +146,9 @@ func fund() =   {
     } 
 }
 
+#if someone ready to replenish in both tokens. It's necessary to bring tokens amount in proportion according to dApp state
 @Callable(contextObj)
-func replenishment() = {
+func replenishmentWithTwoToken() = {
     let paymentA = value(contextObj.payments[0])
     let paymentB = value(contextObj.payments[1])
     let assetIdReceivedA = paymentA.assetId
@@ -156,7 +158,7 @@ func replenishment() = {
     let invariantCalcualated = invariantCalc(dAppTokensAmountA + tokenReceiveAmountA, dAppTokensAmountB + tokenReceiveAmountB)    
     if (assetIdReceivedA != assetIdTokenA || assetIdReceivedB != assetIdTokenB ) then throw("incorrect assets") else
     # fraction should be equal 1(multiple by 1000) if depositor replanish with proporion according to actual price
-    let tokenRatio = fraction(tokenReceiveAmountA,1000000000000*1000,dAppTokensAmountA)/fraction(tokenReceiveAmountB,1000000000000,dAppTokensAmountB)
+    let tokenRatio = fraction(tokenReceiveAmountA,1000000000000*1000,dAppTokensAmountA)/fraction(dAppTokensAmountB,1000000000000,tokenReceiveAmountB)
     # 1 percent differnce is acceptable
     if ( !(tokenRatio > 990 && tokenRatio < 1010) ) then throw("incorrect assets amount") else 
     let shareTokenToPayAmount = fraction(tokenReceiveAmountA,tokenShareSupply,dAppTokensAmountA)
@@ -169,6 +171,57 @@ func replenishment() = {
         IntegerEntry("amountTokenB", dAppTokensAmountB + tokenReceiveAmountB),
         IntegerEntry("invariant", invariantCalcualated)
     ]
+}
+
+#if someone ready to replenish in one tokens
+@Callable(contextObj)
+func replanishmentWithOneToken(tokenAamountWithOldInvariantNewPrice :Int,tokenBamountWithOldInvariantNewPrice :Int) =   {
+    let payment = value(contextObj.payments[0])
+    let assetIdReceived = payment.assetId
+    let tokenReceiveAmount = payment.amount
+    if(assetIdReceived == assetIdTokenA) then (
+        let newAmountTokenA =  dAppTokensAmountA + tokenReceiveAmount
+        let newInvariant = invariantCalc(newAmountTokenA,dAppTokensAmountB)
+        #check input args for price correctness
+        let priceAtoBwith8digits = fraction(newAmountTokenA,scaleValue8,dAppTokensAmountB)
+        let isCorrectPriceRation = fraction(tokenBamountWithOldInvariantNewPrice,priceAtoBwith8digits,tokenAamountWithOldInvariantNewPrice)
+        if isCorrectPriceRation > ratioThresholdMax ||  isCorrectPriceRation < ratioThresholdMin then throw("incorrect function args: price") else
+        #check input args for invariant correctness
+        let calculatedInvariantWithNewPrice = invariantCalc(tokenAamountWithOldInvariantNewPrice,tokenBamountWithOldInvariantNewPrice)
+        let isCorrectInvariantRation = fraction(calculatedInvariantWithNewPrice,scaleValue8,invariant)
+        if isCorrectInvariantRation > ratioThresholdMax ||  isCorrectInvariantRation < ratioThresholdMin then throw("incorrect function args: invariant") else
+        let newTokenShareSupply = fraction(tokenBamountWithOldInvariantNewPrice,tokenShareSupply,dAppTokensAmountB)
+        let shareTokenToPayAmount = newTokenShareSupply-tokenShareSupply
+        [
+        Reissue(assetIdTokenShare,shareTokenToPayAmount,true),
+        ScriptTransfer(contextObj.caller, shareTokenToPayAmount, assetIdTokenShare),
+        IntegerEntry("share_token_supply", tokenShareSupply + shareTokenToPayAmount),
+        IntegerEntry("amountTokenA", newAmountTokenA),
+        IntegerEntry("invariant", newInvariant)
+        ]
+    )
+    else if (assetIdReceived == assetIdTokenB) then (
+        let newAmountTokenB =  dAppTokensAmountB + tokenReceiveAmount
+        let newInvariant = invariantCalc(dAppTokensAmountA,newAmountTokenB)
+        #check input args for price correctness
+        let priceAtoBwith8digits = fraction(dAppTokensAmountA,scaleValue8,newAmountTokenB)
+        let isCorrectPriceRation = fraction(tokenBamountWithOldInvariantNewPrice,priceAtoBwith8digits,tokenAamountWithOldInvariantNewPrice)
+        if isCorrectPriceRation > ratioThresholdMax ||  isCorrectPriceRation < ratioThresholdMin then throw("incorrect function args: price") else
+        #check input args for invariant correctness
+        let calculatedInvariantWithNewPrice = invariantCalc(tokenAamountWithOldInvariantNewPrice,tokenBamountWithOldInvariantNewPrice)
+        let isCorrectInvariantRation = fraction(calculatedInvariantWithNewPrice,scaleValue8,invariant)
+        if isCorrectInvariantRation > ratioThresholdMax ||  isCorrectInvariantRation < ratioThresholdMin then throw("incorrect function args: invariant") else
+        let newTokenShareSupply = fraction(tokenBamountWithOldInvariantNewPrice,tokenShareSupply,dAppTokensAmountB)
+        let shareTokenToPayAmount = newTokenShareSupply-tokenShareSupply
+        [
+        Reissue(assetIdTokenShare,shareTokenToPayAmount,true),
+        ScriptTransfer(contextObj.caller, shareTokenToPayAmount, assetIdTokenShare),
+        IntegerEntry("share_token_supply", tokenShareSupply + shareTokenToPayAmount),
+        IntegerEntry("amountTokenB", newAmountTokenB),
+        IntegerEntry("invariant", newInvariant)
+        ]
+    )
+    else throw("incorrect assets in payment")  
 }
 
 @Callable(contextObj)
