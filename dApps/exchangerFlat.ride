@@ -18,8 +18,8 @@ let ratioThresholdMax = 100000000
 let ratioThresholdMin = 99999000
 let alpha = 50 #model coef alpha = 0.15 
 let alphaDigits = 2
-let betta = 46 #model coef alpha = 0.15 
-let bettaDigits = 2
+let beta = 46 #model coef alpha = 0.15 
+let betaDigits = 2
 
 
 func assetId (asset: String) ={
@@ -35,23 +35,23 @@ let assetIdTokenShare = IdTokenShare.fromBase58String()
 # during working on this fraction scaleValue8 was switched to scaleValue12. to unscale back to 8 digits added /10000
 func skeweness (x: Int,y:Int) = {(fraction(scaleValue12,x,y)+fraction(scaleValue12,y,x))/2/10000}
 
-# (x+y)*skeweness^(-alpha) + 2*(x*y)*(skeweness-betta)^alpha
+# (x+y)*skeweness^(-alpha) + 2*(x*y)*(skeweness-beta)^alpha
 func invariantCalc (x: Int,y:Int) = {
     let sk = skeweness(x,y)
-    fraction(x+y,pow(sk+1,scaleValue8Digits,-alpha,alphaDigits,8,HALFDOWN),scaleValue8)+2*fraction(fraction(pow(x,0,5,1,scaleValue8Digits,HALFDOWN),pow(y,0,5,1,scaleValue8Digits,HALFDOWN),scaleValue8*scaleValue8),pow(sk - betta*scaleValue8/100,0,alpha,alphaDigits,scaleValue8Digits,HALFDOWN),scaleValue12)
+    fraction(x+y,pow(sk+1,scaleValue8Digits,-alpha,alphaDigits,8,HALFDOWN),scaleValue8)+2*fraction(fraction(pow(x,0,5,1,scaleValue8Digits,HALFDOWN),pow(y,0,5,1,scaleValue8Digits,HALFDOWN),scaleValue8*scaleValue8),pow(sk - beta*scaleValue8/100,0,alpha,alphaDigits,scaleValue8Digits,HALFDOWN),scaleValue12)
     # IMPORTANT: in case with alpha = 0.5 its possible to improve accuracy by replace this 
-    # ...pow(sk - betta*scaleValue8/100,scaleValue8Digits,alpha,alphaDigits,scaleValue8Digits,HALFDOWN),scaleValue8...
+    # ...pow(sk - beta*scaleValue8/100,scaleValue8Digits,alpha,alphaDigits,scaleValue8Digits,HALFDOWN),scaleValue8...
     # to
-    #  ...pow(sk - betta*scaleValue8/100,0,alpha,alphaDigits,scaleValue8Digits,HALFDOWN),scaleValue12...
+    #  ...pow(sk - beta*scaleValue8/100,0,alpha,alphaDigits,scaleValue8Digits,HALFDOWN),scaleValue12...
     # we save 4 digit info. 
     # Universal function below
-    # fraction(x+y,pow(sk,scaleValue8Digits,-alpha,alphaDigits,8,HALFDOWN),scaleValue8)+2*fraction(fraction(pow(x,0,5,1,scaleValue8Digits,HALFDOWN),pow(y,0,5,1,scaleValue8Digits,HALFDOWN),scaleValue8*scaleValue8),pow(sk - betta*scaleValue8/100,0,alpha,alphaDigits,scaleValue8Digits,HALFDOWN),scaleValue12)
-    # fraction(x+y,pow(sk,scaleValue8Digits,-alpha,alphaDigits,8,HALFDOWN),scaleValue8)+2*fraction(fraction(pow(x,0,5,1,scaleValue8Digits,HALFDOWN),pow(y,0,5,1,scaleValue8Digits,HALFDOWN),scaleValue8*scaleValue8),pow(sk - betta*scaleValue8/100,scaleValue8Digits,alpha,alphaDigits,scaleValue8Digits,HALFDOWN),scaleValue8)
+    # fraction(x+y,pow(sk,scaleValue8Digits,-alpha,alphaDigits,8,HALFDOWN),scaleValue8)+2*fraction(fraction(pow(x,0,5,1,scaleValue8Digits,HALFDOWN),pow(y,0,5,1,scaleValue8Digits,HALFDOWN),scaleValue8*scaleValue8),pow(sk - beta*scaleValue8/100,0,alpha,alphaDigits,scaleValue8Digits,HALFDOWN),scaleValue12)
+    # fraction(x+y,pow(sk,scaleValue8Digits,-alpha,alphaDigits,8,HALFDOWN),scaleValue8)+2*fraction(fraction(pow(x,0,5,1,scaleValue8Digits,HALFDOWN),pow(y,0,5,1,scaleValue8Digits,HALFDOWN),scaleValue8*scaleValue8),pow(sk - beta*scaleValue8/100,scaleValue8Digits,alpha,alphaDigits,scaleValue8Digits,HALFDOWN),scaleValue8)
 }
 
 
 func calculateHowManySendTokenA(amountToSendEstimated: Int, minTokenRecieveAmount: Int, amountTokenA: Int,amountTokenB: Int, tokenReceiveAmount: Int ) ={
-    let slippageValue = scaleValue8 - scaleValue8*1/10000 # 0.01% of slippage
+    let slippageValue = scaleValue8 - scaleValue8*1/10000000 # 0.0001% of slippage
     let invariantEstimatedRatio = fraction(invariant,scaleValue8,invariantCalc(amountTokenA-amountToSendEstimated,amountTokenB + tokenReceiveAmount))
     if invariantEstimatedRatio > slippageValue && invariantEstimatedRatio < scaleValue8 then
         amountToSendEstimated*(comissionScaleDelimiter-comission)/comissionScaleDelimiter
@@ -80,7 +80,7 @@ func calculateHowManySendTokenA(amountToSendEstimated: Int, minTokenRecieveAmoun
 }
 
 func calculateHowManySendTokenB(amountToSendEstimated: Int, minTokenRecieveAmount: Int, amountTokenA: Int,amountTokenB: Int, tokenReceiveAmount: Int ) ={
-    let slippageValue = scaleValue8 - scaleValue8*1/10000 # 0.01% of slippage by default
+    let slippageValue = scaleValue8 - scaleValue8*1/10000000 # 0.01% of slippage by default
     let invariantEstimatedRatio = fraction(invariant,scaleValue8,invariantCalc(amountTokenA+tokenReceiveAmount,amountTokenB - amountToSendEstimated))
     # if true then throw(toString(invariantCalc(amountTokenA + tokenReceiveAmount, amountTokenB-amountToSendEstimated)) + " " 
     #             +  toString(invariantCalc(500000000000, 500000000000)) + " " 
@@ -90,6 +90,7 @@ func calculateHowManySendTokenB(amountToSendEstimated: Int, minTokenRecieveAmoun
     if invariantEstimatedRatio > slippageValue && invariantEstimatedRatio < scaleValue8 then
         amountToSendEstimated*(comissionScaleDelimiter-comission)/comissionScaleDelimiter
     else 
+
         # let deltaBetweenMaxAndMinSendValue = amountToSendEstimated-minTokenRecieveAmount
         # let amountToSendStep1 = amountToSendEstimated - 1*deltaBetweenMaxAndMinSendValue/5
         # let amountToSendStep2 = amountToSendEstimated - 2*deltaBetweenMaxAndMinSendValue/5
@@ -184,9 +185,9 @@ func replenishmentWithTwoToken() = {
     let invariantCalcualated = invariantCalc(dAppTokensAmountA + tokenReceiveAmountA, dAppTokensAmountB + tokenReceiveAmountB)    
     if (assetIdReceivedA != assetIdTokenA || assetIdReceivedB != assetIdTokenB ) then throw("incorrect assets") else
     # fraction should be equal 1(multiple by 1000) if depositor replanish with proporion according to actual price
-    let tokenRatio = fraction(tokenReceiveAmountA,1000000000000*1000,dAppTokensAmountA)/fraction(dAppTokensAmountB,1000000000000,tokenReceiveAmountB)
+    let tokenRatio = fraction(tokenReceiveAmountA,scaleValue8,dAppTokensAmountA)/fraction(dAppTokensAmountB,1,tokenReceiveAmountB)
     # 1 percent differnce is acceptable
-    if ( !(tokenRatio > 990 && tokenRatio < 1010) ) then throw("incorrect assets amount") else 
+    if  !(tokenRatio == scaleValue8 ) then throw("incorrect assets amount: amounts must have the same ratio as contract") else 
     let shareTokenToPayAmount = fraction(tokenReceiveAmountA,tokenShareSupply,dAppTokensAmountA)
     if ( shareTokenToPayAmount == 0 ) then throw("you try replansish with very small amount") else 
     [
