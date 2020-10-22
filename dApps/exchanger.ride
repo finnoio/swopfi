@@ -5,7 +5,7 @@ let IdTokenA =  getStringValue(this,"assetIdTokenA")
 let IdTokenB =  getStringValue(this,"assetIdTokenB")
 let amountTokenB = getIntegerValue(this, "amountTokenB")
 let amountTokenA = getIntegerValue(this, "amountTokenA")
-let assetIdTokenShare = getBinaryValue(this,"share_token_id")
+let IdTokenShare = getStringValue(this,"share_token_id")
 let tokenShareSupply = getIntegerValue(this,"share_token_supply")
 let comission = 500 #comission/comissionScaleDelimiter = 0.0005 = 0.05%
 let comissionScaleDelimiter = 1000000
@@ -20,6 +20,7 @@ func assetId (asset: String) ={
 
 let assetIdTokenA = assetId(IdTokenA)
 let assetIdTokenB =  assetId(IdTokenB)
+let assetIdTokenShare = IdTokenShare.fromBase58String()
 
 
 
@@ -47,6 +48,7 @@ func fund() = {
         # we save 16 digit info with using scaleValue8Digits in pow functions. We divide /scaleValue8 to delete 8 digits and another 8 digits we define as digits in shareToken in Issue tx
         let shareTokenInitialAmount =  fraction(pow(tokenReceiveAmountA,digitTokenA,5,1,digitTokenA,HALFDOWN),pow(tokenReceiveAmountB,digitTokenB,5,1,digitTokenB,HALFDOWN),pow(10,0,digitsInShareToken,0,0,HALFDOWN))
         let shareTokenAssetId = calculateAssetId(Issue(shareTokenName,shareTokenName,shareTokenInitialAmount,digitsInShareToken,true))
+
         let assetIdTokenStringA = match (assetIdReceivedA) {
             case t:Unit => "WAVES" 
             case t:ByteVector => toBase58String(value(assetIdReceivedA))
@@ -67,7 +69,7 @@ func fund() = {
             StringEntry("version", version),
             Issue(shareTokenName,shareTokenName,shareTokenInitialAmount,digitsInShareToken,true),
             ScriptTransfer(contextObj.caller, shareTokenInitialAmount, shareTokenAssetId),
-            BinaryEntry("share_token_id", shareTokenAssetId),
+            StringEntry("share_token_id", toBase58String(shareTokenAssetId)),
             IntegerEntry("share_token_supply", shareTokenInitialAmount)
         ]
     } 

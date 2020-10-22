@@ -21,15 +21,24 @@ let alphaDigits = 2
 let betta = 46 #model coef alpha = 0.15 
 let bettaDigits = 2
 
+
+func assetId (asset: String) ={
+    if asset == "WAVES" then unit else asset.fromBase58String()
+}
+
+let assetIdTokenA = assetId(IdTokenA)
+let assetIdTokenB =  assetId(IdTokenB)
+let assetIdTokenShare = IdTokenShare.fromBase58String()
+
 # skeweness =  0.5*(x/y+y/x) 
 # each fraction multiple by scaleValue in order to avoid zeroing
-func skeweness (x: Int,y:Int) = {(fraction(scaleValue8,x,y)+fraction(scaleValue8,y,x))/2}
+# during working on this fraction scaleValue8 was switched to scaleValue12. to unscale back to 8 digits added /10000
+func skeweness (x: Int,y:Int) = {(fraction(scaleValue12,x,y)+fraction(scaleValue12,y,x))/2/10000}
 
 # (x+y)*skeweness^(-alpha) + 2*(x*y)*(skeweness-betta)^alpha
 func invariantCalc (x: Int,y:Int) = {
     let sk = skeweness(x,y)
-    fraction(x+y,pow(sk,scaleValue8Digits,-alpha,alphaDigits,8,HALFDOWN),scaleValue8)+
-    2*fraction(fraction(pow(x,0,5,1,scaleValue8Digits,HALFDOWN),pow(y,0,5,1,scaleValue8Digits,HALFDOWN),scaleValue8*scaleValue8),pow(sk - betta*scaleValue8/100,0,alpha,alphaDigits,scaleValue8Digits,HALFDOWN),scaleValue12)
+    fraction(x+y,pow(sk+1,scaleValue8Digits,-alpha,alphaDigits,8,HALFDOWN),scaleValue8)+2*fraction(fraction(pow(x,0,5,1,scaleValue8Digits,HALFDOWN),pow(y,0,5,1,scaleValue8Digits,HALFDOWN),scaleValue8*scaleValue8),pow(sk - betta*scaleValue8/100,0,alpha,alphaDigits,scaleValue8Digits,HALFDOWN),scaleValue12)
     # IMPORTANT: in case with alpha = 0.5 its possible to improve accuracy by replace this 
     # ...pow(sk - betta*scaleValue8/100,scaleValue8Digits,alpha,alphaDigits,scaleValue8Digits,HALFDOWN),scaleValue8...
     # to
@@ -38,12 +47,8 @@ func invariantCalc (x: Int,y:Int) = {
     # Universal function below
     # fraction(x+y,pow(sk,scaleValue8Digits,-alpha,alphaDigits,8,HALFDOWN),scaleValue8)+2*fraction(fraction(pow(x,0,5,1,scaleValue8Digits,HALFDOWN),pow(y,0,5,1,scaleValue8Digits,HALFDOWN),scaleValue8*scaleValue8),pow(sk - betta*scaleValue8/100,0,alpha,alphaDigits,scaleValue8Digits,HALFDOWN),scaleValue12)
     # fraction(x+y,pow(sk,scaleValue8Digits,-alpha,alphaDigits,8,HALFDOWN),scaleValue8)+2*fraction(fraction(pow(x,0,5,1,scaleValue8Digits,HALFDOWN),pow(y,0,5,1,scaleValue8Digits,HALFDOWN),scaleValue8*scaleValue8),pow(sk - betta*scaleValue8/100,scaleValue8Digits,alpha,alphaDigits,scaleValue8Digits,HALFDOWN),scaleValue8)
-
 }
 
-func assetId (asset: String) ={
-    if asset == "WAVES" then unit else asset.fromBase58String()
-}
 
 func calculateHowManySendTokenA(amountToSendEstimated: Int, minTokenRecieveAmount: Int, amountTokenA: Int,amountTokenB: Int, tokenReceiveAmount: Int ) ={
     let slippageValue = scaleValue8 - scaleValue8*1/10000 # 0.01% of slippage
@@ -78,7 +83,7 @@ func calculateHowManySendTokenB(amountToSendEstimated: Int, minTokenRecieveAmoun
     let slippageValue = scaleValue8 - scaleValue8*1/10000 # 0.01% of slippage by default
     let invariantEstimatedRatio = fraction(invariant,scaleValue8,invariantCalc(amountTokenA+tokenReceiveAmount,amountTokenB - amountToSendEstimated))
     # if true then throw(toString(invariantCalc(amountTokenA + tokenReceiveAmount, amountTokenB-amountToSendEstimated)) + " " 
-    #             +  toString(invariantCalc(50000000000000, 50000000000000)) + " " 
+    #             +  toString(invariantCalc(500000000000, 500000000000)) + " " 
     #             + toString(amountTokenA+tokenReceiveAmount) + " " 
     #             + toString(amountTokenB - amountToSendEstimated) + " " 
     #             )  else
@@ -108,9 +113,7 @@ func calculateHowManySendTokenB(amountToSendEstimated: Int, minTokenRecieveAmoun
         throw("price has changed dramatically. err2")    
 }
 
-let assetIdTokenA = assetId(IdTokenA)
-let assetIdTokenB =  assetId(IdTokenB)
-let assetIdTokenShare = IdTokenShare.fromBase58String()
+
 
 @Callable(contextObj)
 func fund() =   {
@@ -253,7 +256,6 @@ func withdraw() =   {
     let payment = value(contextObj.payments[0])
     let assetIdReceived = payment.assetId
     let tokenReceiveAmount = payment.amount
-    if assetIdTokenShare !=  assetIdReceived then throw("you need to attach share token for this dApp " + toBase58String(assetIdTokenShare)) else
     let tokensToPayA = fraction(tokenReceiveAmount,dAppTokensAmountA,tokenShareSupply)
     let tokensToPayB = fraction(tokenReceiveAmount,dAppTokensAmountB,tokenShareSupply)
     let invariantCalcualated = invariantCalc(dAppTokensAmountA - tokensToPayA, dAppTokensAmountB - tokensToPayB)    
