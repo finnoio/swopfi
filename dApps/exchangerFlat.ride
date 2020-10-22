@@ -9,23 +9,37 @@ let dAppTokensAmountB = getIntegerValue(this, "amountTokenB")
 let tokenShareSupply = getIntegerValue(this,"share_token_supply")
 let comission = 0 #comission/comissionScaleDelimiter = 0.00
 let comissionScaleDelimiter = 10000
-let version = "0.0.2" 
+let version = "2.0.0" 
 let invariant = getIntegerValue(this,"invariant")
 let scaleValue8 = 100000000
 let scaleValue8Digits = 8
 let scaleValue12 = 1000000000000
 let ratioThresholdMax = 100000000
 let ratioThresholdMin = 99999000
-let alpha = 15 #model coef alpha = 0.15 
+let alpha = 50 #model coef alpha = 0.15 
 let alphaDigits = 2
+let betta = 46 #model coef alpha = 0.15 
+let bettaDigits = 2
 
 # skeweness =  0.5*(x/y+y/x) 
 # each fraction multiple by scaleValue in order to avoid zeroing
 func skeweness (x: Int,y:Int) = {(fraction(scaleValue8,x,y)+fraction(scaleValue8,y,x))/2}
 
-# (x+y)*skeweness^(-alpha) + (x*y)*skeweness^alpha
-func invariantCalc (x: Int,y:Int) = {fraction(10000*(x+y),1,scaleValue8*pow(skeweness(x,y),scaleValue8Digits,alpha,alphaDigits,4,HALFDOWN))+ 
-                                        fraction(fraction(x,y,scaleValue8),pow(skeweness(x,y),scaleValue8Digits,alpha,alphaDigits,6,HALFDOWN),1000000)}
+# (x+y)*skeweness^(-alpha) + 2*(x*y)*(skeweness-betta)^alpha
+func invariantCalc (x: Int,y:Int) = {
+    let sk = skeweness(x,y)
+    fraction(x+y,pow(sk,scaleValue8Digits,-alpha,alphaDigits,8,HALFDOWN),scaleValue8)+2*fraction(fraction(pow(x,0,5,1,scaleValue8Digits,HALFDOWN),pow(y,0,5,1,scaleValue8Digits,HALFDOWN),scaleValue8*scaleValue8),pow(sk - betta*scaleValue8/100,0,alpha,alphaDigits,scaleValue8Digits,HALFDOWN),scaleValue12)
+    # IMPORTANT: in case with alpha = 0.5 its possible to improve accuracy by replace this 
+    # ...pow(sk - betta*scaleValue8/100,scaleValue8Digits,alpha,alphaDigits,scaleValue8Digits,HALFDOWN),scaleValue8...
+    # to
+    #  ...pow(sk - betta*scaleValue8/100,0,alpha,alphaDigits,scaleValue8Digits,HALFDOWN),scaleValue12...
+    # we save 4 digit info. 
+    # Universal function below
+    # fraction(x+y,pow(sk,scaleValue8Digits,-alpha,alphaDigits,8,HALFDOWN),scaleValue8)+2*fraction(fraction(pow(x,0,5,1,scaleValue8Digits,HALFDOWN),pow(y,0,5,1,scaleValue8Digits,HALFDOWN),scaleValue8*scaleValue8),pow(sk - betta*scaleValue8/100,0,alpha,alphaDigits,scaleValue8Digits,HALFDOWN),scaleValue12)
+    # fraction(x+y,pow(sk,scaleValue8Digits,-alpha,alphaDigits,8,HALFDOWN),scaleValue8)+2*fraction(fraction(pow(x,0,5,1,scaleValue8Digits,HALFDOWN),pow(y,0,5,1,scaleValue8Digits,HALFDOWN),scaleValue8*scaleValue8),pow(sk - betta*scaleValue8/100,scaleValue8Digits,alpha,alphaDigits,scaleValue8Digits,HALFDOWN),scaleValue8)
+
+}
+
 func assetId (asset: String) ={
     if asset == "WAVES" then unit else asset.fromBase58String()
 }
@@ -36,56 +50,61 @@ func calculateHowManySendTokenA(amountToSendEstimated: Int, minTokenRecieveAmoun
     if invariantEstimatedRatio > slippageValue && invariantEstimatedRatio < scaleValue8 then
         amountToSendEstimated*(comissionScaleDelimiter-comission)/comissionScaleDelimiter
     else 
-        let deltaBetweenMaxAndMinSendValue = amountToSendEstimated-minTokenRecieveAmount
-        let amountToSendStep1 = amountToSendEstimated - 1*deltaBetweenMaxAndMinSendValue/5
-        let amountToSendStep2 = amountToSendEstimated - 2*deltaBetweenMaxAndMinSendValue/5
-        let amountToSendStep3 = amountToSendEstimated - 3*deltaBetweenMaxAndMinSendValue/5
-        let amountToSendStep4 = amountToSendEstimated - 4*deltaBetweenMaxAndMinSendValue/5
-        let amountToSendStep5 = amountToSendEstimated - 5*deltaBetweenMaxAndMinSendValue/5
-        #before start check last condition. If it wrong we can stop
-        if invariantCalc(amountTokenA-amountToSendStep5,amountTokenB + tokenReceiveAmount)-invariant < 0 then throw("price has changed dramatically. err1") else
+        # let deltaBetweenMaxAndMinSendValue = amountToSendEstimated-minTokenRecieveAmount
+        # let amountToSendStep1 = amountToSendEstimated - 1*deltaBetweenMaxAndMinSendValue/5
+        # let amountToSendStep2 = amountToSendEstimated - 2*deltaBetweenMaxAndMinSendValue/5
+        # let amountToSendStep3 = amountToSendEstimated - 3*deltaBetweenMaxAndMinSendValue/5
+        # let amountToSendStep4 = amountToSendEstimated - 4*deltaBetweenMaxAndMinSendValue/5
+        # let amountToSendStep5 = amountToSendEstimated - 5*deltaBetweenMaxAndMinSendValue/5
+        # #before start check last condition. If it wrong we can stop
+        # if invariantCalc(amountTokenA-amountToSendStep5,amountTokenB + tokenReceiveAmount)-invariant < 0 then throw("price has changed dramatically. err1") else
 
-        if invariantCalc(amountTokenA-amountToSendStep1,amountTokenB + tokenReceiveAmount)-invariant > 0 then 
-            amountToSendStep1*(comissionScaleDelimiter-comission)/comissionScaleDelimiter
-        else if invariantCalc(amountTokenA-amountToSendStep2,amountTokenB + tokenReceiveAmount)-invariant > 0 then 
-            amountToSendStep2*(comissionScaleDelimiter-comission)/comissionScaleDelimiter
-        else if invariantCalc(amountTokenA-amountToSendStep3,amountTokenB + tokenReceiveAmount)-invariant > 0 then 
-            amountToSendStep3*(comissionScaleDelimiter-comission)/comissionScaleDelimiter
-        else if invariantCalc(amountTokenA-amountToSendStep4,amountTokenB + tokenReceiveAmount)-invariant > 0 then 
-            amountToSendStep4*(comissionScaleDelimiter-comission)/comissionScaleDelimiter
-        else if invariantCalc(amountTokenA-amountToSendStep5,amountTokenB + tokenReceiveAmount)-invariant > 0 then 
-            amountToSendStep5*(comissionScaleDelimiter-comission)/comissionScaleDelimiter
-        else throw("price has changed dramatically. err2")    
+        # if invariantCalc(amountTokenA-amountToSendStep1,amountTokenB + tokenReceiveAmount)-invariant > 0 then 
+        #     amountToSendStep1*(comissionScaleDelimiter-comission)/comissionScaleDelimiter
+        # else if invariantCalc(amountTokenA-amountToSendStep2,amountTokenB + tokenReceiveAmount)-invariant > 0 then 
+        #     amountToSendStep2*(comissionScaleDelimiter-comission)/comissionScaleDelimiter
+        # else if invariantCalc(amountTokenA-amountToSendStep3,amountTokenB + tokenReceiveAmount)-invariant > 0 then 
+        #     amountToSendStep3*(comissionScaleDelimiter-comission)/comissionScaleDelimiter
+        # else if invariantCalc(amountTokenA-amountToSendStep4,amountTokenB + tokenReceiveAmount)-invariant > 0 then 
+        #     amountToSendStep4*(comissionScaleDelimiter-comission)/comissionScaleDelimiter
+        # else if invariantCalc(amountTokenA-amountToSendStep5,amountTokenB + tokenReceiveAmount)-invariant > 0 then 
+        #     amountToSendStep5*(comissionScaleDelimiter-comission)/comissionScaleDelimiter
+        # else 
+            throw("price has changed dramatically. err2")    
 }
 
 func calculateHowManySendTokenB(amountToSendEstimated: Int, minTokenRecieveAmount: Int, amountTokenA: Int,amountTokenB: Int, tokenReceiveAmount: Int ) ={
     let slippageValue = scaleValue8 - scaleValue8*1/10000 # 0.01% of slippage by default
     let invariantEstimatedRatio = fraction(invariant,scaleValue8,invariantCalc(amountTokenA+tokenReceiveAmount,amountTokenB - amountToSendEstimated))
-    # if true then throw(toString(invariantCalc(amountTokenA + tokenReceiveAmount, amountTokenB-amountToSendEstimated))+ " " + toString(invariant) + " "+toString(amountTokenA + tokenReceiveAmount)+" " +toString(amountTokenB-amountToSendEstimated))  else
-
+    # if true then throw(toString(invariantCalc(amountTokenA + tokenReceiveAmount, amountTokenB-amountToSendEstimated)) + " " 
+    #             +  toString(invariantCalc(50000000000000, 50000000000000)) + " " 
+    #             + toString(amountTokenA+tokenReceiveAmount) + " " 
+    #             + toString(amountTokenB - amountToSendEstimated) + " " 
+    #             )  else
     if invariantEstimatedRatio > slippageValue && invariantEstimatedRatio < scaleValue8 then
         amountToSendEstimated*(comissionScaleDelimiter-comission)/comissionScaleDelimiter
     else 
-        let deltaBetweenMaxAndMinSendValue = amountToSendEstimated-minTokenRecieveAmount
-        let amountToSendStep1 = amountToSendEstimated - 1*deltaBetweenMaxAndMinSendValue/5
-        let amountToSendStep2 = amountToSendEstimated - 2*deltaBetweenMaxAndMinSendValue/5
-        let amountToSendStep3 = amountToSendEstimated - 3*deltaBetweenMaxAndMinSendValue/5
-        let amountToSendStep4 = amountToSendEstimated - 4*deltaBetweenMaxAndMinSendValue/5
-        let amountToSendStep5 = amountToSendEstimated - 5*deltaBetweenMaxAndMinSendValue/5
-        #before start check last condition. If it wrong we can stop
-        if invariantCalc(amountTokenA+tokenReceiveAmount,amountTokenB - amountToSendStep5)-invariant < 0 then throw("price has changed dramatically. err1") else
+        # let deltaBetweenMaxAndMinSendValue = amountToSendEstimated-minTokenRecieveAmount
+        # let amountToSendStep1 = amountToSendEstimated - 1*deltaBetweenMaxAndMinSendValue/5
+        # let amountToSendStep2 = amountToSendEstimated - 2*deltaBetweenMaxAndMinSendValue/5
+        # let amountToSendStep3 = amountToSendEstimated - 3*deltaBetweenMaxAndMinSendValue/5
+        # let amountToSendStep4 = amountToSendEstimated - 4*deltaBetweenMaxAndMinSendValue/5
+        # let amountToSendStep5 = amountToSendEstimated - 5*deltaBetweenMaxAndMinSendValue/5
+        # #before start check last condition. If it wrong we can stop
+        # if invariantCalc(amountTokenA+tokenReceiveAmount,amountTokenB - amountToSendStep5)-invariant < 0 then throw("price has changed dramatically. err1") else
 
-        if invariantCalc(amountTokenA+tokenReceiveAmount,amountTokenB - amountToSendStep1)-invariant > 0 then 
-            amountToSendStep1*(comissionScaleDelimiter-comission)/comissionScaleDelimiter
-        else if invariantCalc(amountTokenA+tokenReceiveAmount,amountTokenB - amountToSendStep2)-invariant > 0 then 
-            amountToSendStep2*(comissionScaleDelimiter-comission)/comissionScaleDelimiter
-        else if invariantCalc(amountTokenA+tokenReceiveAmount,amountTokenB - amountToSendStep3)-invariant > 0 then 
-            amountToSendStep3*(comissionScaleDelimiter-comission)/comissionScaleDelimiter
-        else if invariantCalc(amountTokenA+tokenReceiveAmount,amountTokenB - amountToSendStep4)-invariant > 0 then 
-            amountToSendStep4*(comissionScaleDelimiter-comission)/comissionScaleDelimiter
-        else if invariantCalc(amountTokenA+tokenReceiveAmount,amountTokenB - amountToSendStep5)-invariant > 0 then 
-            amountToSendStep5*(comissionScaleDelimiter-comission)/comissionScaleDelimiter
-        else throw("price has changed dramatically. err2")    
+        # if invariantCalc(amountTokenA+tokenReceiveAmount,amountTokenB - amountToSendStep1)-invariant > 0 then 
+        #     amountToSendStep1*(comissionScaleDelimiter-comission)/comissionScaleDelimiter
+        # else if invariantCalc(amountTokenA+tokenReceiveAmount,amountTokenB - amountToSendStep2)-invariant > 0 then 
+        #     amountToSendStep2*(comissionScaleDelimiter-comission)/comissionScaleDelimiter
+        # else if invariantCalc(amountTokenA+tokenReceiveAmount,amountTokenB - amountToSendStep3)-invariant > 0 then 
+        #     amountToSendStep3*(comissionScaleDelimiter-comission)/comissionScaleDelimiter
+        # else if invariantCalc(amountTokenA+tokenReceiveAmount,amountTokenB - amountToSendStep4)-invariant > 0 then 
+        #     amountToSendStep4*(comissionScaleDelimiter-comission)/comissionScaleDelimiter
+        # else if invariantCalc(amountTokenA+tokenReceiveAmount,amountTokenB - amountToSendStep5)-invariant > 0 then 
+        #     amountToSendStep5*(comissionScaleDelimiter-comission)/comissionScaleDelimiter
+        # else 
+        throw("price has changed dramatically. err2")    
 }
 
 let assetIdTokenA = assetId(IdTokenA)
@@ -114,8 +133,12 @@ func fund() =   {
 
         let shareTokenName = "ShareT_" + takeRight(toString(this),5)
         # we save 16 digit info with using scaleValue8Digits in pow functions. We divide /scaleValue8 to delete 8 digits and another 8 digits we define as digits in shareToken in Issue tx
+        let digitsInShareToken = (digitTokenA+digitTokenB)/2
+        # we save 16 digit info with using scaleValue8Digits in pow functions. We divide /scaleValue8 to delete 8 digits and another 8 digits we define as digits in shareToken in Issue tx
+        
         let shareTokenInitialAmount =  fraction(pow(tokenReceiveAmountA,digitTokenA,5,1,scaleValue8Digits,HALFDOWN),pow(tokenReceiveAmountB,digitTokenB,5,1,scaleValue8Digits,HALFDOWN),scaleValue8)
-        let shareTokenAssetId = calculateAssetId(Issue(shareTokenName,shareTokenName,shareTokenInitialAmount,8,true))
+        let shareTokenAssetId = calculateAsset
+        Id(Issue(shareTokenName,shareTokenName,shareTokenInitialAmount,8,true))
         let assetIdTokenStringA = match (assetIdReceivedA) {
             case t:Unit => "WAVES" 
             case t:ByteVector => toBase58String(value(assetIdReceivedA))
@@ -124,9 +147,9 @@ func fund() =   {
             case t:Unit => "WAVES" 
             case t:ByteVector => toBase58String(value(assetIdReceivedB))
           }
-      
+
         let invariantCalcualated = invariantCalc(tokenReceiveAmountA,tokenReceiveAmountB)  
-  
+        #if true then throw(toString(invariantCalcualated)) else
         [
             IntegerEntry("amountTokenA", tokenReceiveAmountA ),
             IntegerEntry("amountTokenB", tokenReceiveAmountB ),
@@ -138,7 +161,7 @@ func fund() =   {
             IntegerEntry("comission",comission),
             IntegerEntry("comissionScaleDelimiter",comissionScaleDelimiter),
             StringEntry("version", version),
-            Issue(shareTokenName,shareTokenName,shareTokenInitialAmount,8,true),
+            Issue(shareTokenName,shareTokenName,shareTokenInitialAmount,digitsInShareToken,true),
             ScriptTransfer(contextObj.caller, shareTokenInitialAmount, shareTokenAssetId),
             StringEntry("share_token_id", toBase58String(shareTokenAssetId)),
             IntegerEntry("share_token_supply", shareTokenInitialAmount)
