@@ -28,7 +28,8 @@ func skeweness (x: Int,y:Int) = {(fraction(scaleValue8,x,y)+fraction(scaleValue8
 # (x+y)*skeweness^(-alpha) + 2*(x*y)*(skeweness-betta)^alpha
 func invariantCalc (x: Int,y:Int) = {
     let sk = skeweness(x,y)
-    fraction(x+y,pow(sk,scaleValue8Digits,-alpha,alphaDigits,8,HALFDOWN),scaleValue8)+2*fraction(fraction(pow(x,0,5,1,scaleValue8Digits,HALFDOWN),pow(y,0,5,1,scaleValue8Digits,HALFDOWN),scaleValue8*scaleValue8),pow(sk - betta*scaleValue8/100,0,alpha,alphaDigits,scaleValue8Digits,HALFDOWN),scaleValue12)
+    fraction(x+y,pow(sk,scaleValue8Digits,-alpha,alphaDigits,8,HALFDOWN),scaleValue8)+
+    2*fraction(fraction(pow(x,0,5,1,scaleValue8Digits,HALFDOWN),pow(y,0,5,1,scaleValue8Digits,HALFDOWN),scaleValue8*scaleValue8),pow(sk - betta*scaleValue8/100,0,alpha,alphaDigits,scaleValue8Digits,HALFDOWN),scaleValue12)
     # IMPORTANT: in case with alpha = 0.5 its possible to improve accuracy by replace this 
     # ...pow(sk - betta*scaleValue8/100,scaleValue8Digits,alpha,alphaDigits,scaleValue8Digits,HALFDOWN),scaleValue8...
     # to
@@ -136,9 +137,8 @@ func fund() =   {
         let digitsInShareToken = (digitTokenA+digitTokenB)/2
         # we save 16 digit info with using scaleValue8Digits in pow functions. We divide /scaleValue8 to delete 8 digits and another 8 digits we define as digits in shareToken in Issue tx
         
-        let shareTokenInitialAmount =  fraction(pow(tokenReceiveAmountA,digitTokenA,5,1,scaleValue8Digits,HALFDOWN),pow(tokenReceiveAmountB,digitTokenB,5,1,scaleValue8Digits,HALFDOWN),scaleValue8)
-        let shareTokenAssetId = calculateAsset
-        Id(Issue(shareTokenName,shareTokenName,shareTokenInitialAmount,8,true))
+        let shareTokenInitialAmount =  fraction(pow(tokenReceiveAmountA,digitTokenA,5,1,digitTokenA,HALFDOWN),pow(tokenReceiveAmountB,digitTokenB,5,1,digitTokenB,HALFDOWN),pow(10,0,digitsInShareToken,0,0,HALFDOWN))
+        let shareTokenAssetId = calculateAssetId(Issue(shareTokenName,shareTokenName,shareTokenInitialAmount,digitsInShareToken,true))
         let assetIdTokenStringA = match (assetIdReceivedA) {
             case t:Unit => "WAVES" 
             case t:ByteVector => toBase58String(value(assetIdReceivedA))
