@@ -1,7 +1,7 @@
 {-# STDLIB_VERSION 4 #-}
 {-# CONTENT_TYPE DAPP #-}
 {-# SCRIPT_TYPE ACCOUNT #-}
-let governanceAdress = Address(base58'3MSNMcqyweiM9cWpvf4Fn8GAWeuPstxj2hK') 
+let governanceAddress = Address(base58'3MSNMcqyweiM9cWpvf4Fn8GAWeuPstxj2hK') 
 let IdTokenA =  getStringValue(this,"assetIdTokenA")
 let IdTokenB =  getStringValue(this,"assetIdTokenB")
 let IdTokenShare = getStringValue(this,"share_token_id")
@@ -281,7 +281,7 @@ func exchanger( amountToSendEstimated: Int, minTokenRecieveAmount: Int ) = {
                 IntegerEntry("amountTokenB",  newAmountTokenB),
                 IntegerEntry("invariant", invariantCalc( amountTokenA - tokenSendAmountWithFee - tokenSendGovernance,amountTokenB + tokenReceiveAmount)),
                 ScriptTransfer(contextObj.caller, tokenSendAmountWithFee, assetIdSend),
-                ScriptTransfer(governanceAdress,tokenSendGovernance,assetIdSend)
+                ScriptTransfer(governanceAddress,tokenSendGovernance,assetIdSend)
             ]
         )
     else ( if (assetIdReceived == assetIdTokenA)
@@ -301,7 +301,7 @@ func exchanger( amountToSendEstimated: Int, minTokenRecieveAmount: Int ) = {
             IntegerEntry("amountTokenB", newAmountTokenB),
             IntegerEntry("invariant", invariantCalc(amountTokenA + tokenReceiveAmount, amountTokenB - tokenSendAmountWithFee - tokenSendGovernance)),
             ScriptTransfer(contextObj.caller, tokenSendAmountWithFee, assetIdSend),
-            ScriptTransfer(governanceAdress,tokenSendGovernance,assetIdSend)
+            ScriptTransfer(governanceAddress,tokenSendGovernance,assetIdSend)
             ]   
         )
     else throw("Asset is not allowed"))
