@@ -8,7 +8,8 @@ let IdTokenShare = getStringValue(this,"share_token_id")
 let dAppTokensAmountA = getIntegerValue(this, "amountTokenA")
 let dAppTokensAmountB = getIntegerValue(this, "amountTokenB")
 let tokenShareSupply = getIntegerValue(this,"share_token_supply")
-let dAppThresholdAmount = 400000000000
+let dAppThresholdAmount = 80 # dAppThresholdAmount/dAppThresholdAmountDelimiter = 0.8
+let dAppThresholdAmountDelimiter = 100
 let comission = 500 #comission/comissionScaleDelimiter = 0.0005
 let commisionGovernance = 200 # commisionGovernance/comissionScaleDelimiter = 0.0002. 3/5 fee back to the dApp, 2/5 sends to the governance address
 let comissionScaleDelimiter = 1000000
@@ -39,10 +40,9 @@ func skeweness (x: Int,y:Int) = {(fraction(scaleValue12,x,y)+fraction(scaleValue
 # Calculate (x+y)*skeweness^(-alpha) + 2*(x*y)^0.5*(skeweness-beta)^alpha
 func invariantCalc (x: Int,y:Int) = {
     let sk = skeweness(x,y)
-    #fraction(x+y,pow(sk,scaleValue8Digits,-alpha,alphaDigits,8,UP),scaleValue8)+2*fraction(fraction(pow(x,0,5,1,scaleValue8Digits,DOWN),pow(y,0,5,1,scaleValue8Digits,DOWN),scaleValue8*scaleValue8),pow(sk - beta,scaleValue8Digits,alpha,alphaDigits,scaleValue8Digits,DOWN),scaleValue8)
     fraction(x+y,scaleValue8,pow(sk,scaleValue8Digits,alpha,alphaDigits,8,UP))+2*fraction(fraction(pow(x,0,5,1,scaleValue8Digits,DOWN),pow(y,0,5,1,scaleValue8Digits,DOWN),scaleValue8*scaleValue8),pow(sk - beta,scaleValue8Digits,alpha,alphaDigits,scaleValue8Digits,DOWN),scaleValue8)
-}
 
+}
 
 func calculateHowManySendTokenA(amountToSendEstimated: Int, minTokenRecieveAmount: Int, amountTokenA: Int,amountTokenB: Int, tokenReceiveAmount: Int ) ={
     let slippageValue = scaleValue8 - scaleValue8*1/10000000 # 0.0001% of slippage

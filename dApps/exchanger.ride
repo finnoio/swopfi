@@ -148,6 +148,7 @@ func withdraw() =   {
     if assetIdTokenShare !=  assetIdReceived then throw("you need to attach share token for this dApp " + toBase58String(assetIdTokenShare)) else
     let tokensToPayA = fraction(tokenReceiveAmount,dAppTokensAmountA,tokenShareSupply)
     let tokensToPayB = fraction(tokenReceiveAmount,dAppTokensAmountB,tokenShareSupply)
+    if this.getBooleanValue("status") != true then throw("status: Unactive") else
     [      
         ScriptTransfer(contextObj.caller, tokensToPayA, assetIdTokenA),
         ScriptTransfer(contextObj.caller, tokensToPayB, assetIdTokenB),
@@ -164,11 +165,12 @@ func exchanger( minTokenRecieve: Int) = {
     let assetIdReceived = payment.assetId
     let tokenReceiveAmount = payment.amount
     let count =  value(getInteger(this, "exchange_count"))
+    if this.getBooleanValue("status") != true then throw("status: Unactive") else
     if(assetIdReceived == assetIdTokenB)
         then
         (
             #let tokenSendAmount =  (AmountTokenA*scale - fraction(amountTokenB,scale*AmountTokenA,tokenReceiveAmount + amountTokenB))/scale
-            let tokenSendAmountWithoutFee =  fraction(amountTokenA,tokenReceiveAmount,tokenReceiveAmount + amountTokenB)*(comissionScaleDelimiter-comission)/comissionScaleDelimiter
+            let tokenSendAmountWithoutFee =  fraction(amountTokenA,tokenReceiveAmount,tokenReceiveAmount + amountTokenB)
             let tokenSendAmountWithFee = fraction(tokenSendAmountWithoutFee,comissionScaleDelimiter-comission,comissionScaleDelimiter)
             let tokenSendGovernance = fraction(tokenSendAmountWithoutFee,commisionGovernance,comissionScaleDelimiter)
             if(tokenSendAmountWithFee < minTokenRecieve) then(throw("Price has changed dramaticaly. Receiving token amount don't satisfy specified price level")) else
@@ -185,7 +187,7 @@ func exchanger( minTokenRecieve: Int) = {
     else ( if (assetIdReceived == assetIdTokenA)
         then
             (
-            let tokenSendAmountWithoutFee =  (fraction(amountTokenB,tokenReceiveAmount,tokenReceiveAmount + amountTokenA)*(comissionScaleDelimiter-comission))/comissionScaleDelimiter
+            let tokenSendAmountWithoutFee = (fraction(amountTokenB,tokenReceiveAmount,tokenReceiveAmount + amountTokenA))
             let tokenSendAmountWithFee = fraction(tokenSendAmountWithoutFee,comissionScaleDelimiter-comission,comissionScaleDelimiter)
             let tokenSendGovernance = fraction(tokenSendAmountWithoutFee,commisionGovernance,comissionScaleDelimiter)
             if(tokenSendAmountWithFee < minTokenRecieve) then(throw("Price has changed dramaticaly. Receiving token amount don't satisfy specified price level")) else
