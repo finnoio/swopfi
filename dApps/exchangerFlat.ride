@@ -1,15 +1,15 @@
 {-# STDLIB_VERSION 4 #-}
 {-# CONTENT_TYPE DAPP #-}
 {-# SCRIPT_TYPE ACCOUNT #-}
-let governanceAddress = Address(base58'3MSNMcqyweiM9cWpvf4Fn8GAWeuPstxj2hK') 
+let governanceAddress = Address(base58'3MS55nqhYKLbLZmRExmUN3H6RSWkr9c2VC5') 
 let IdTokenA =  getStringValue(this,"assetIdTokenA")
 let IdTokenB =  getStringValue(this,"assetIdTokenB")
 let IdTokenShare = getStringValue(this,"share_token_id")
 let dAppTokensAmountA = getIntegerValue(this, "amountTokenA")
 let dAppTokensAmountB = getIntegerValue(this, "amountTokenB")
 let tokenShareSupply = getIntegerValue(this,"share_token_supply")
-let dAppThresholdAmount = 80 # dAppThresholdAmount/dAppThresholdAmountDelimiter = 0.8
-let dAppThresholdAmountDelimiter = 100
+let dAppThreshold = 80 # dAppThresholdAmount/dAppThresholdAmountDelimiter = 0.8
+let dAppThresholdDelimiter = 100
 let comission = 500 #comission/comissionScaleDelimiter = 0.0005
 let commisionGovernance = 200 # commisionGovernance/comissionScaleDelimiter = 0.0002. 3/5 fee back to the dApp, 2/5 sends to the governance address
 let comissionScaleDelimiter = 1000000
@@ -18,6 +18,7 @@ let invariant = getIntegerValue(this,"invariant")
 let scaleValue8 = 100000000
 let scaleValue8Digits = 8
 let scaleValue12 = 1000000000000
+let scaleValue12Digits = 12
 let ratioThresholdMax = 100000000
 let ratioThresholdMin = 99999000
 let alpha = 50 #model coef alpha = 0.15 with 2 digits
@@ -40,25 +41,24 @@ func skeweness (x: Int,y:Int) = {(fraction(scaleValue12,x,y)+fraction(scaleValue
 # Calculate (x+y)*skeweness^(-alpha) + 2*(x*y)^0.5*(skeweness-beta)^alpha
 func invariantCalc (x: Int,y:Int) = {
     let sk = skeweness(x,y)
-    fraction(x+y,scaleValue8,pow(sk,scaleValue8Digits,alpha,alphaDigits,8,UP))+2*fraction(fraction(pow(x,0,5,1,scaleValue8Digits,DOWN),pow(y,0,5,1,scaleValue8Digits,DOWN),scaleValue8*scaleValue8),pow(sk - beta,scaleValue8Digits,alpha,alphaDigits,scaleValue8Digits,DOWN),scaleValue8)
-
+    #if true then throw(toString(x) + " "+ toString(y)+" "+toString(fraction(x+y,scaleValue8,pow(sk,scaleValue8Digits,alpha,alphaDigits,8,UP))+2*fraction(pow(fraction(x,y,scaleValue8),0,5,1,scaleValue8Digits/2,DOWN),pow(sk - beta,scaleValue8Digits,alpha,alphaDigits,scaleValue8Digits,DOWN),scaleValue8))) else
+    fraction(x+y,scaleValue8,pow(sk,scaleValue8Digits,alpha,alphaDigits,8,UP))+2*fraction(pow(fraction(x,y,scaleValue8),0,5,1,scaleValue8Digits/2,DOWN),pow(sk - beta,scaleValue8Digits,alpha,alphaDigits,scaleValue8Digits,DOWN),scaleValue8)
 }
 
 func calculateHowManySendTokenA(amountToSendEstimated: Int, minTokenRecieveAmount: Int, amountTokenA: Int,amountTokenB: Int, tokenReceiveAmount: Int ) ={
-    let slippageValue = scaleValue8 - scaleValue8*1/10000000 # 0.0001% of slippage
+    let slippageValue = scaleValue8 - scaleValue8*1/10000000 # 0.000001% of slippage
+    let deltaBetweenMaxAndMinSendValue = amountToSendEstimated-minTokenRecieveAmount
+    let amountToSendStep1 = amountToSendEstimated - 1*deltaBetweenMaxAndMinSendValue/5
+    let amountToSendStep2 = amountToSendEstimated - 2*deltaBetweenMaxAndMinSendValue/5
+    let amountToSendStep3 = amountToSendEstimated - 3*deltaBetweenMaxAndMinSendValue/5
+    let amountToSendStep4 = amountToSendEstimated - 4*deltaBetweenMaxAndMinSendValue/5
+    let amountToSendStep5 = amountToSendEstimated - 5*deltaBetweenMaxAndMinSendValue/5
+    #before start check last condition. If it wrong we can stop
+    if invariantCalc(amountTokenA-amountToSendStep5,amountTokenB + tokenReceiveAmount)-invariant < 0 then throw("minTokenRecieveAmount too large.err1") else
     let invariantEstimatedRatio = fraction(invariant,scaleValue8,invariantCalc(amountTokenA-amountToSendEstimated,amountTokenB + tokenReceiveAmount))
     if invariantEstimatedRatio > slippageValue && invariantEstimatedRatio < scaleValue8 then
         amountToSendEstimated
     else 
-        let deltaBetweenMaxAndMinSendValue = amountToSendEstimated-minTokenRecieveAmount
-        let amountToSendStep1 = amountToSendEstimated - 1*deltaBetweenMaxAndMinSendValue/5
-        let amountToSendStep2 = amountToSendEstimated - 2*deltaBetweenMaxAndMinSendValue/5
-        let amountToSendStep3 = amountToSendEstimated - 3*deltaBetweenMaxAndMinSendValue/5
-        let amountToSendStep4 = amountToSendEstimated - 4*deltaBetweenMaxAndMinSendValue/5
-        let amountToSendStep5 = amountToSendEstimated - 5*deltaBetweenMaxAndMinSendValue/5
-        #before start check last condition. If it wrong we can stop
-        if invariantCalc(amountTokenA-amountToSendStep5,amountTokenB + tokenReceiveAmount)-invariant < 0 then throw("minTokenRecieveAmount too large. err1") else
-
         if invariantCalc(amountTokenA-amountToSendStep1,amountTokenB + tokenReceiveAmount)-invariant > 0 then 
             amountToSendStep1*(comissionScaleDelimiter-comission)/comissionScaleDelimiter
         else if invariantCalc(amountTokenA-amountToSendStep2,amountTokenB + tokenReceiveAmount)-invariant > 0 then 
@@ -74,21 +74,20 @@ func calculateHowManySendTokenA(amountToSendEstimated: Int, minTokenRecieveAmoun
 }
 
 func calculateHowManySendTokenB(amountToSendEstimated: Int, minTokenRecieveAmount: Int, amountTokenA: Int,amountTokenB: Int, tokenReceiveAmount: Int ) ={
-    let slippageValue = scaleValue8 - scaleValue8*1/10000000 # 0.01% of slippage by default
+    let slippageValue = scaleValue8 - scaleValue8*1/10000000 # 0.000001% of slippage
+    let deltaBetweenMaxAndMinSendValue = amountToSendEstimated-minTokenRecieveAmount
+    let amountToSendStep1 = amountToSendEstimated - 1*deltaBetweenMaxAndMinSendValue/5
+    let amountToSendStep2 = amountToSendEstimated - 2*deltaBetweenMaxAndMinSendValue/5
+    let amountToSendStep3 = amountToSendEstimated - 3*deltaBetweenMaxAndMinSendValue/5
+    let amountToSendStep4 = amountToSendEstimated - 4*deltaBetweenMaxAndMinSendValue/5
+    let amountToSendStep5 = amountToSendEstimated - 5*deltaBetweenMaxAndMinSendValue/5
+    #before start check last condition. If it wrong we can stop
+    #if invariantCalc(amountTokenA+tokenReceiveAmount,amountTokenB - amountToSendStep5)-invariant < 0 then throw("minTokenRecieveAmount too large.err1") else
     let invariantEstimatedRatio = fraction(invariant,scaleValue8,invariantCalc(amountTokenA+tokenReceiveAmount,amountTokenB - amountToSendEstimated))
     if invariantEstimatedRatio > slippageValue && invariantEstimatedRatio < scaleValue8 then
         amountToSendEstimated
     else 
-
-        let deltaBetweenMaxAndMinSendValue = amountToSendEstimated-minTokenRecieveAmount
-        let amountToSendStep1 = amountToSendEstimated - 1*deltaBetweenMaxAndMinSendValue/5
-        let amountToSendStep2 = amountToSendEstimated - 2*deltaBetweenMaxAndMinSendValue/5
-        let amountToSendStep3 = amountToSendEstimated - 3*deltaBetweenMaxAndMinSendValue/5
-        let amountToSendStep4 = amountToSendEstimated - 4*deltaBetweenMaxAndMinSendValue/5
-        let amountToSendStep5 = amountToSendEstimated - 5*deltaBetweenMaxAndMinSendValue/5
-        #before start check last condition. If it wrong we can stop
-        if invariantCalc(amountTokenA+tokenReceiveAmount,amountTokenB - amountToSendStep5)-invariant < 0 then throw("price has changed dramatically. err1") else
-
+        
         if invariantCalc(amountTokenA+tokenReceiveAmount,amountTokenB - amountToSendStep1)-invariant > 0 then 
             amountToSendStep1*(comissionScaleDelimiter-comission)/comissionScaleDelimiter
         else if invariantCalc(amountTokenA+tokenReceiveAmount,amountTokenB - amountToSendStep2)-invariant > 0 then 
@@ -274,7 +273,8 @@ func exchanger( amountToSendEstimated: Int, minTokenRecieveAmount: Int ) = {
             let assetIdSend = assetIdTokenA
             let newAmountTokenA = amountTokenA - tokenSendAmountWithFee - tokenSendGovernance
             let newAmountTokenB = amountTokenB + tokenReceiveAmount
-            if newAmountTokenA < dAppThresholdAmount || newAmountTokenB < dAppThresholdAmount then throw("balance error: new dApp tokens amount less than dAppThresholdAmount") else 
+            let dAppThresholdAmount = fraction(dAppTokensAmountA+dAppTokensAmountB,dAppThreshold,2*dAppThresholdDelimiter)
+            if newAmountTokenA <  dAppThresholdAmount || newAmountTokenB < dAppThresholdAmount then throw("balance error: new dApp tokens amount less than dAppThresholdAmount") else 
             # successful execution result is updating information about actual balance and supply into the state and transfer tokens to the caller
             [
                 IntegerEntry("amountTokenA", newAmountTokenA ),
@@ -294,6 +294,7 @@ func exchanger( amountToSendEstimated: Int, minTokenRecieveAmount: Int ) = {
             let assetIdSend = assetIdTokenB
             let newAmountTokenA = amountTokenA + tokenReceiveAmount
             let newAmountTokenB = amountTokenB - tokenSendAmountWithFee - tokenSendGovernance
+            let dAppThresholdAmount = fraction(dAppTokensAmountA+dAppTokensAmountB,dAppThreshold,2*dAppThresholdDelimiter)
             if newAmountTokenA < dAppThresholdAmount || newAmountTokenB < dAppThresholdAmount then throw("balance error: new dApp tokens amount less than dAppThresholdAmount") else 
             # successful execution result is updating information about actual balance and supply into the state and transfer tokens to the caller
             [

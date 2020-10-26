@@ -62,7 +62,6 @@ func fund() = {
             IntegerEntry("amountTokenB", tokenReceiveAmountB ),
             StringEntry("assetIdTokenA", assetIdTokenStringA),
             StringEntry("assetIdTokenB", assetIdTokenStringB),
-            IntegerEntry("exchange_count", 0),
             BooleanEntry("status", true),
             IntegerEntry("comission",comission),
             IntegerEntry("comissionScaleDelimiter",comissionScaleDelimiter),
@@ -164,7 +163,6 @@ func exchanger( minTokenRecieve: Int) = {
     let payment = value(contextObj.payments[0])
     let assetIdReceived = payment.assetId
     let tokenReceiveAmount = payment.amount
-    let count =  value(getInteger(this, "exchange_count"))
     if this.getBooleanValue("status") != true then throw("status: Unactive") else
     if(assetIdReceived == assetIdTokenB)
         then
@@ -179,7 +177,6 @@ func exchanger( minTokenRecieve: Int) = {
             [
                 IntegerEntry("amountTokenA", amountTokenA -  tokenSendAmountWithFee -  tokenSendGovernance),
                 IntegerEntry("amountTokenB",  amountTokenB + tokenReceiveAmount),
-                IntegerEntry("exchange_count",  count + 1),
                 ScriptTransfer(contextObj.caller, tokenSendAmountWithFee, assetIdSend),
                 ScriptTransfer(governanceAddress, tokenSendGovernance, assetIdSend)
             ]
@@ -196,7 +193,6 @@ func exchanger( minTokenRecieve: Int) = {
             [
             IntegerEntry("amountTokenA", amountTokenA + tokenReceiveAmount),
             IntegerEntry("amountTokenB", amountTokenB - tokenSendAmountWithFee - tokenSendGovernance),
-            IntegerEntry("exchange_count",  count + 1),
             ScriptTransfer(contextObj.caller, tokenSendAmountWithFee, assetIdSend),
             ScriptTransfer(governanceAddress, tokenSendGovernance, assetIdSend)
             ]   

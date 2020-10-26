@@ -1,128 +1,57 @@
-import pywaves as pw
-import random
-import requests
-import time
-from dAppScript import dAppScript
-import json
+#@title
 
-NODE_URL = "https://nodes.wavesnodes.com"
+import numpy as np
+import plotly.graph_objects as go
+import math
 
-def wait_for_resource_available(id, timeout):
-    status_code = 0
-    status = 0
-    while status_code != 200:
-        time.sleep(1)
-        response = requests.get(NODE_URL + "/transactions/info/" + id)
-        status_code = response.status_code
-        try:
-            status = json.loads(str(response.content.decode('utf8')))[
-                "applicationStatus"]
-        except:
-            status = "NotFound"
-    return status
+def invV2(x_i,y_i,alpha,betta):
+  scale8 = 100000000
+  skeweness = 1/2*(int(y_i*scale8/x_i)+int(x_i*scale8/y_i))
+  first_sum = math.floor((x_i+y_i)*scale8/math.ceil((skeweness/scale8)**(alpha)*scale8))
+  second_sum_first_part = math.floor(round(x_i*y_i/scale8)**0.5*(scale8/10000))
+  second_sum_second_part = math.floor(((skeweness-betta*scale8)/scale8)**alpha*scale8)
+  second_sum = 2*math.floor((second_sum_first_part*second_sum_second_part)/scale8)
+  return first_sum + second_sum
 
-script = dAppScript()
+def find_how_many_you_getV2(x_balance,y_balance,x_balance_new,alpha,betta):
+  actual_invarian = invV2(x_balance,y_balance,alpha,betta)
+  y_left = 1
+  y_right = 100*y_balance
+  for i in range(50):
+    mean = (y_left + y_right)/2
+    #print(mean,actual_invarian,invV2(x_balance_new,mean,alpha,betta))
+    invariant_left = invV2(x_balance_new,y_left,alpha,betta)
+    invariant_rigth = invV2(x_balance_new,y_right,alpha,betta)
+    invariant_mean = invV2(x_balance_new,mean,alpha,betta)
+    invariant_delta_in_left = actual_invarian - invariant_left
+    invariant_delta_in_right = actual_invarian - invariant_rigth
+    invariant_delta_in_mean = actual_invarian - invariant_mean
+    print(i)
+    # print(actual_invarian-invariant_left,actual_invarian-invariant_rigth)
+    # print((actual_invarian-invariant_left)*(actual_invarian-invariant_rigth))
+    # print(f'{actual_invarian=}')
+    # print(f'{y_left=}',actual_invarian-invV2(x_balance_new,y_left,alpha,betta))
+    # print(f'{y_right=}',actual_invarian-invV2(x_balance_new,y_right,alpha,betta))
+    # print(f'{mean=}',actual_invarian-invV2(x_balance_new,mean,alpha,betta))
+    print(y_balance-y_left,y_balance-mean,y_balance-y_right)
 
-pw.setNode(node=NODE_URL, chain_id="W")
+    if invariant_delta_in_mean*invariant_delta_in_left < 0:
+      y_left = y_left
+      y_right = mean
+    elif invariant_delta_in_mean*invariant_delta_in_right <0:
+      y_left = mean
+      y_right = y_right
+    else:
+      return y_balance - mean  
+  return y_balance - mean
 
-test2=pw.Address(seed="puzzle evolve elbow position flag basic phrase click dry style clarify remove breeze trade flush")
-assetId1 = "8rHCFkUBXESpofv7Yw2PeSsKaj3sx8uwMbyXFmvbEhFe"#waves
-assetId2 = "8ryPDzHAvr1VW5LnmFTaUxVaenu9o65nkxBA2rKm1KiW"#usdn
-amount1 = int(100*1e8)
-amount2 = int(327*1e6)
+x_balance = 500100000000 #500k with 6 digits
+y_balance = 499900032709
+alpha_for_V2 = 0.50
+betta_for_V2 = 0.46
+you_pay_in_x = 10000000000
 
-moneySeed = pw.Address(seed = "beauty argue shell wing person now flower range soft renew same chalk iron tiger moment")
+updated_X_amount = x_balance + you_pay_in_x
+you_get_flat_v2 = find_how_many_you_getV2(x_balance,y_balance,updated_X_amount,alpha_for_V2,betta_for_V2)
+print("invV2 = ",  invV2(updated_X_amount,y_balance-you_get_flat_v2,alpha_for_V2,betta_for_V2))
 
-# transfer = moneySeed.sendWaves(test2,int(1400000))
-# wait_for_resource_available(transfer["id"],1000)
-# print(transfer)
-
-print(script)
-
-setScript = test2.setScript(script,txFee=1400000)
-print(setScript)
-wait_for_resource_available(setScript["id"],1000)
-
-
-# fund = moneySeed.invokeScript(test2.address, "fund", [], [
-#     {"amount": amount1, "assetId": assetId1 },{"amount": amount2, "assetId": assetId2}], txFee=100900000)
-# print(fund)
-# statusFund = wait_for_resource_available(
-#     fund["id"], 100)
-# print(fund)
-
-
-# invoke = moneySeed.invokeScript(test2.address, "exchanger", [{"type": "integer", "value": int(9990004894) },{"type": "integer", "value":int(9990004894)}], [{ "amount": 10000000000, "assetId": "qTtranpN3eE8UDZ5kehxvHHtUggXCMTyANGv3RtvaKi" }], txFee=1000000)
-# print(invoke)
-# wait_for_resource_available(invoke["id"],1000)
-
-
-# invoke = moneySeed.invokeScript(test2.address, "exchanger", [{"type": "integer", "value": int(933131743117) },{"type": "integer", "value":int(933131743117)}], [{ "amount": 1000000000000, "assetId": "qTtranpN3eE8UDZ5kehxvHHtUggXCMTyANGv3RtvaKi" }], txFee=1000000)
-# print(invoke)
-# wait_for_resource_available(invoke["id"],1000)
-
-# invoke = moneySeed.invokeScript(test2.address, "exchanger", [{"type": "integer", "value": int(113800618343) },{"type": "integer", "value":int(113862618343)}], [{ "amount": 100000000000, "assetId": "CdNeFRKeotuA9pnS2AaEAKPUGVPT56e5FXebDuGU8XMK" }], txFee=1000000)
-# print(invoke)
-# wait_for_resource_available(invoke["id"],1000)
-
-# replanish = moneySeed.invokeScript(test2.address, "replenishment", [], [
-#     {"amount": 10896199381657
-# , "assetId": "qTtranpN3eE8UDZ5kehxvHHtUggXCMTyANGv3RtvaKi"},{"amount": 9156878251989, "assetId": "CdNeFRKeotuA9pnS2AaEAKPUGVPT56e5FXebDuGU8XMK"}], txFee=1000000)
-# print(replanish)
-# statusreplanish = wait_for_resource_available(
-#     replanish["id"], 1000)
-
-
-
-
-# data = [{
-#         'type':'string', 
-#         'key': 'owner', 
-#         'value':'3PEFtmZXKR8rPiG3Qmrk4ZkWCh45DX8mEnW'
-#         }]
-# dataTx = test2.dataTransaction(data)
-# print(dataTx)
-
-# replanish = moneySeed.invokeScript(test2.address, "replenishment", [], [
-#     {"amount": 10000, "assetId": None},{"amount": 10000, "assetId": "CdNeFRKeotuA9pnS2AaEAKPUGVPT56e5FXebDuGU8XMK"}], txFee=1000000)
-# print(replanish)
-# statusreplanish = wait_for_resource_available(
-#     replanish["id"], 1000)
-
-# withdraw = moneySeed.invokeScript(test2.address, "withdraw", [], [
-#     {"amount": 10000, "assetId": "43WFxusv292EziGspQ7mHxH7sfBu8osguMyt4f7RCHhX"}], txFee=1000000)
-# print(withdraw)
-# statusreplanish = wait_for_resource_available(
-#     withdraw["id"], 1000)
-
-
-
-# setScript = test2.setScript(script,txFee=1400000)
-# wait_for_resource_available(setScript["id"],1000)
-# print(setScript)
-
-# invoke = moneySeed.invokeScript(test2.address, "exchanger", [{"type": "integer", "value": int(9993004894) },{"type": "integer", "value":int(9993004894)}], [{ "amount": 10000000000, "assetId": "qTtranpN3eE8UDZ5kehxvHHtUggXCMTyANGv3RtvaKi" }], txFee=1000000)
-# print(invoke)
-
-# invoke = test2.invokeScript("3N6KuDDYL9ZpT5CQ1HuzW9G1UfGRXizWbqp", "withdraw", [], [{ "amount": 10000, "assetId": None }], txFee=1000000)
-# print(invoke)
-
-
-
-
-# issueTx = moneySeed.issueAsset("Token4","",int(100000000*1e8),8)
-# print(issueTx)
-
-# data = [{
-#         'type':'integer', 
-#         'key': 'comissionScaleDelimiter', 
-#         'value': 10000
-#         }]
-# dataTx = test2.dataTransaction(data)
-# print(dataTx)
-
-
-# myToken = pw.Asset('CdNeFRKeotuA9pnS2AaEAKPUGVPT56e5FXebDuGU8XMK')
-# moneySeed.sendAsset(pw.Address(address='3MSR6AFbR4pc3XpnQy62khNFRbricnwcrfJ'), myToken, int(100000*1e8),txFee = 1000000)
-# tx = moneySeed.sendWaves(pw.Address(address='3MSR6AFbR4pc3XpnQy62khNFRbricnwcrfJ'), int(100000*1e8),txFee = 1000000)
-# print(tx)
