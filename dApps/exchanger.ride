@@ -1,18 +1,18 @@
 {-# STDLIB_VERSION 4 #-}
 {-# CONTENT_TYPE DAPP #-}
 {-# SCRIPT_TYPE ACCOUNT #-}
+let governanceAdress = Address(base58'3MSNMcqyweiM9cWpvf4Fn8GAWeuPstxj2hK') 
 let IdTokenA =  getStringValue(this,"assetIdTokenA")
 let IdTokenB =  getStringValue(this,"assetIdTokenB")
 let amountTokenB = getIntegerValue(this, "amountTokenB")
 let amountTokenA = getIntegerValue(this, "amountTokenA")
 let IdTokenShare = getStringValue(this,"share_token_id")
 let tokenShareSupply = getIntegerValue(this,"share_token_supply")
-let comission = 500 #comission/comissionScaleDelimiter = 0.0005 = 0.05%
+let comission = 300 #comission/comissionScaleDelimiter = 0.0003
+let commisionGovernance = 200 # commisionGovernance/comissionScaleDelimiter = 0.0002
 let comissionScaleDelimiter = 1000000
 let version = "1.0.0" 
 let scaleValue8 = 100000000
-let ratioThresholdMax = 100000000
-let ratioThresholdMin = 99999000
 let scaleValue8Digits = 8
 func assetId (asset: String) ={
     if asset == "WAVES" then unit else asset.fromBase58String()
@@ -168,29 +168,35 @@ func exchanger( minTokenRecieve: Int) = {
         then
         (
             #let tokenSendAmount =  (AmountTokenA*scale - fraction(amountTokenB,scale*AmountTokenA,tokenReceiveAmount + amountTokenB))/scale
-            let tokenSendAmount =  fraction(amountTokenA,tokenReceiveAmount,tokenReceiveAmount + amountTokenB)*(comissionScaleDelimiter-comission)/comissionScaleDelimiter
-            if(tokenSendAmount < minTokenRecieve) then(throw("Price has changed dramaticaly. Receiving token amount don't satisfy specified price level")) else
-            let assetIdSent = assetIdTokenA
+            let tokenSendAmountWithoutFee =  fraction(amountTokenA,tokenReceiveAmount,tokenReceiveAmount + amountTokenB)*(comissionScaleDelimiter-comission)/comissionScaleDelimiter
+            let tokenSendAmountWithFee = fraction(tokenSendAmountWithoutFee,comissionScaleDelimiter-comission,comissionScaleDelimiter)
+            let tokenSendGovernance = fraction(tokenSendAmountWithoutFee,commisionGovernance,comissionScaleDelimiter)
+            if(tokenSendAmountWithFee < minTokenRecieve) then(throw("Price has changed dramaticaly. Receiving token amount don't satisfy specified price level")) else
+            let assetIdSend = assetIdTokenA
             # successful execution result is updating information about actual balance and supply into the state and transfer tokens to the caller
             [
-                IntegerEntry("amountTokenA", amountTokenA -  tokenSendAmount ),
+                IntegerEntry("amountTokenA", amountTokenA -  tokenSendAmountWithFee -  tokenSendGovernance),
                 IntegerEntry("amountTokenB",  amountTokenB + tokenReceiveAmount),
                 IntegerEntry("exchange_count",  count + 1),
-                ScriptTransfer(contextObj.caller, tokenSendAmount, assetIdSent)
+                ScriptTransfer(contextObj.caller, tokenSendAmountWithFee, assetIdSend),
+                ScriptTransfer(governanceAdress, tokenSendGovernance, assetIdSend)
             ]
         )
     else ( if (assetIdReceived == assetIdTokenA)
         then
             (
-            let tokenSendAmount =  (fraction(amountTokenB,tokenReceiveAmount,tokenReceiveAmount + amountTokenA)*(comissionScaleDelimiter-comission))/comissionScaleDelimiter
-            if(tokenSendAmount < minTokenRecieve) then(throw("Price has changed dramaticaly. Receiving token amount don't satisfy specified price level")) else
-            let assetIdSent = assetIdTokenB
+            let tokenSendAmountWithoutFee =  (fraction(amountTokenB,tokenReceiveAmount,tokenReceiveAmount + amountTokenA)*(comissionScaleDelimiter-comission))/comissionScaleDelimiter
+            let tokenSendAmountWithFee = fraction(tokenSendAmountWithoutFee,comissionScaleDelimiter-comission,comissionScaleDelimiter)
+            let tokenSendGovernance = fraction(tokenSendAmountWithoutFee,commisionGovernance,comissionScaleDelimiter)
+            if(tokenSendAmountWithFee < minTokenRecieve) then(throw("Price has changed dramaticaly. Receiving token amount don't satisfy specified price level")) else
+            let assetIdSend = assetIdTokenB
             # successful execution result is updating information about actual balance and supply into the state and transfer tokens to the caller
             [
             IntegerEntry("amountTokenA", amountTokenA + tokenReceiveAmount),
-            IntegerEntry("amountTokenB", amountTokenB - tokenSendAmount),
+            IntegerEntry("amountTokenB", amountTokenB - tokenSendAmountWithFee - tokenSendGovernance),
             IntegerEntry("exchange_count",  count + 1),
-            ScriptTransfer(contextObj.caller, tokenSendAmount, assetIdSent)
+            ScriptTransfer(contextObj.caller, tokenSendAmountWithFee, assetIdSend),
+            ScriptTransfer(governanceAdress, tokenSendGovernance, assetIdSend)
             ]   
         )
     else throw("Asset is not allowed"))
