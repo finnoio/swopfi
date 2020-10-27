@@ -15,6 +15,7 @@ let commisionGovernance = 200 # commisionGovernance/comissionScaleDelimiter = 0.
 let comissionScaleDelimiter = 1000000
 let version = "2.0.0" 
 let invariant = getIntegerValue(this,"invariant")
+let scaleValue3 = 1000
 let scaleValue8 = 100000000
 let scaleValue8Digits = 8
 let scaleValue12 = 1000000000000
@@ -169,9 +170,8 @@ func replenishmentWithTwoToken() = {
     let invariantCalcualated = invariantCalc(dAppTokensAmountA + tokenReceiveAmountA, dAppTokensAmountB + tokenReceiveAmountB)    
     if (assetIdReceivedA != assetIdTokenA || assetIdReceivedB != assetIdTokenB ) then throw("incorrect assets") else
     # fraction should be equal 1(multiple by 1000) if depositor replanish with proporion according to actual price
-    let tokenRatio = fraction(tokenReceiveAmountA,scaleValue8,dAppTokensAmountA)/fraction(dAppTokensAmountB,1,tokenReceiveAmountB)
-    # 1 percent differnce is acceptable
-    if  !(tokenRatio == scaleValue8 ) then throw("incorrect assets amount: amounts must have the contract ratio") else 
+    let tokenRatio = fraction(dAppTokensAmountA,1000000000000*scaleValue3,tokenReceiveAmountA)/fraction(dAppTokensAmountB,1000000000000,tokenReceiveAmountB)
+    if  !(tokenRatio == scaleValue3 ) then throw("incorrect assets amount: amounts must have the contract ratio") else 
     let shareTokenToPayAmount = fraction(tokenReceiveAmountA,tokenShareSupply,dAppTokensAmountA)
     if ( shareTokenToPayAmount == 0 ) then throw("you try replansish with very small amount") else 
     [

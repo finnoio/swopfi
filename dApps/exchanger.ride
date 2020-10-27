@@ -12,6 +12,7 @@ let comission = 300 #comission/comissionScaleDelimiter = 0.0003
 let commisionGovernance = 200 # commisionGovernance/comissionScaleDelimiter = 0.0002
 let comissionScaleDelimiter = 1000000
 let version = "1.0.0" 
+let scaleValue3 = 1000
 let scaleValue8 = 100000000
 let scaleValue8Digits = 8
 func assetId (asset: String) ={
@@ -75,7 +76,7 @@ func fund() = {
 }
 
 @Callable(contextObj)
-func replenishment() = {
+func replenishmentWithTwoToken() = {
     let paymentA = value(contextObj.payments[0])
     let paymentB = value(contextObj.payments[1])
     let assetIdReceivedA = paymentA.assetId
@@ -86,9 +87,8 @@ func replenishment() = {
     let dAppTokensAmountB = getIntegerValue(this, "amountTokenB")
     if (assetIdReceivedA != assetIdTokenA || assetIdReceivedB != assetIdTokenB ) then throw("incorrect assets") else
     # fraction should be equal 1(multiple by 1000) if depositor replanish with proporion according to actual price
-    let tokenRatio = fraction(tokenReceiveAmountA,1000000000000*100000,dAppTokensAmountA)/fraction(dAppTokensAmountB,1000000000000,tokenReceiveAmountB)
-    # 1 percent differnce is acceptable
-    if ( !(tokenRatio > 99990 && tokenRatio < 100010) ) then throw("incorrect assets amount") else 
+    let tokenRatio = fraction(dAppTokensAmountA,1000000000000*scaleValue3,tokenReceiveAmountA)/fraction(dAppTokensAmountB,1000000000000,tokenReceiveAmountB)
+    if  !(tokenRatio == scaleValue3 ) then throw("incorrect assets amount: amounts must have the contract ratio") else 
     let shareTokenToPayAmount = fraction(tokenReceiveAmountA,tokenShareSupply,dAppTokensAmountA)
     if ( shareTokenToPayAmount == 0 ) then throw("you try replansish with very small amount") else 
     [
