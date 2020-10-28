@@ -172,7 +172,7 @@ func replenishmentWithTwoToken() = {
     let invariantCalcualated = invariantCalc(dAppTokensAmountA + tokenReceiveAmountA, dAppTokensAmountB + tokenReceiveAmountB)    
     if (assetIdReceivedA != assetIdTokenA || assetIdReceivedB != assetIdTokenB ) then throw("incorrect assets") else
     # fraction should be equal 1(multiple by 1000) if depositor replanish with proporion according to actual price
-    let tokenRatio = fraction(dAppTokensAmountA,1000000000000*scaleValue3,tokenReceiveAmountA)/fraction(dAppTokensAmountB,1000000000000,tokenReceiveAmountB)
+    let tokenRatio = fraction(dAppTokensAmountA,scaleValue8*scaleValue3,tokenReceiveAmountA)/fraction(dAppTokensAmountB,scaleValue8,tokenReceiveAmountB)
     if  tokenRatio < (scaleValue3*(replanishmentSlippageToleranceDelimeter - replanishmentSlippageTolerance))/replanishmentSlippageToleranceDelimeter || 
     tokenRatio > (scaleValue3*(replanishmentSlippageToleranceDelimeter + replanishmentSlippageTolerance))/replanishmentSlippageToleranceDelimeter then throw("incorrect assets amount: amounts must have the contract ratio") else 
     let shareTokenToPayAmount = fraction(tokenReceiveAmountA,tokenShareSupply,dAppTokensAmountA)
