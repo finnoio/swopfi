@@ -14,7 +14,6 @@ let comissionScaleDelimiter = 1000000
 let version = "1.0.0" 
 let scaleValue3 = 1000
 let scaleValue8 = 100000000
-let replanishmentSlippageTolerance = 100# 1/10 of slippage tolerance for replanishment
 let replanishmentSlippageToleranceDelimeter = 1000
 let scaleValue8Digits = 8
 func assetId (asset: String) ={
@@ -76,7 +75,7 @@ func fund() = {
 }
 
 @Callable(contextObj)
-func replenishmentWithTwoToken() = {
+func replenishmentWithTwoToken(replanishmentSlippageTolerance: Int) = {
     let paymentA = value(contextObj.payments[0])
     let paymentB = value(contextObj.payments[1])
     let assetIdReceivedA = paymentA.assetId
@@ -88,7 +87,7 @@ func replenishmentWithTwoToken() = {
     if (assetIdReceivedA != assetIdTokenA || assetIdReceivedB != assetIdTokenB ) then throw("incorrect assets") else
     # fraction should be equal 1(multiple by 1000) if depositor replanish with proporion according to actual price
     let tokenRatio = fraction(dAppTokensAmountA,1000000000000*scaleValue3,tokenReceiveAmountA)/fraction(dAppTokensAmountB,1000000000000,tokenReceiveAmountB)
-     if  tokenRatio < (scaleValue3*(replanishmentSlippageToleranceDelimeter - replanishmentSlippageTolerance))/replanishmentSlippageToleranceDelimeter || 
+    if  tokenRatio < (scaleValue3*(replanishmentSlippageToleranceDelimeter - replanishmentSlippageTolerance))/replanishmentSlippageToleranceDelimeter || 
     tokenRatio > (scaleValue3*(replanishmentSlippageToleranceDelimeter + replanishmentSlippageTolerance))/replanishmentSlippageToleranceDelimeter then throw("incorrect assets amount: amounts must have the contract ratio") else 
 
     let shareTokenToPayAmount = fraction(tokenReceiveAmountA,tokenShareSupply,dAppTokensAmountA)
