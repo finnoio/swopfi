@@ -56,13 +56,13 @@ moneySeed = pw.Address(seed = "mutual essence merry loop margin morning involve 
 # print(invoke)                                                                                 
 # wait_for_resource_available(invoke["id"],1000)
 
-invoke = moneySeed.invokeScript(test2.address, "exchanger", [{"type": "integer", "value": int(123080811) },{"type": "integer", "value":int(123080811)}], [{ "amount": 123122512, "assetId": assetId1 }], txFee=1000000)
-print(invoke)                                                                                                                                                                                                                                             
-wait_for_resource_available(invoke["id"],1000)
+# invoke = moneySeed.invokeScript(test2.address, "exchanger", [{"type": "integer", "value": int(123080811) },{"type": "integer", "value":int(123080811)}], [{ "amount": 123122512, "assetId": assetId1 }], txFee=1000000)
+# print(invoke)                                                                                                                                                                                                                                             
+# wait_for_resource_available(invoke["id"],1000)
 
 # replanish = moneySeed.invokeScript(test2.address, "replenishmentWithTwoToken", [], [
-#     {"amount": 500006067795
-# , "assetId": assetId1},{"amount": 500000000000, "assetId": assetId2}], txFee=1000000)
+#     {"amount": 500006067795, "assetId": assetId1},
+#     {"amount": 500000000000, "assetId": assetId2}], txFee=1000000)
 # print(replanish)
 # statusreplanish = wait_for_resource_available(
 #     replanish["id"], 1000)
