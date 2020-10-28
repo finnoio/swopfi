@@ -8,12 +8,14 @@ let amountTokenB = getIntegerValue(this, "amountTokenB")
 let amountTokenA = getIntegerValue(this, "amountTokenA")
 let IdTokenShare = getStringValue(this,"share_token_id")
 let tokenShareSupply = getIntegerValue(this,"share_token_supply")
-let comission = 300 #comission/comissionScaleDelimiter = 0.0003
+let comission = 500 #comission/comissionScaleDelimiter = 0.0003
 let commisionGovernance = 200 # commisionGovernance/comissionScaleDelimiter = 0.0002
 let comissionScaleDelimiter = 1000000
 let version = "1.0.0" 
 let scaleValue3 = 1000
 let scaleValue8 = 100000000
+let replanishmentSlippageTolerance = 100# 1/10 of slippage tolerance for replanishment
+let replanishmentSlippageToleranceDelimeter = 1000
 let scaleValue8Digits = 8
 func assetId (asset: String) ={
     if asset == "WAVES" then unit else asset.fromBase58String()
@@ -22,8 +24,6 @@ func assetId (asset: String) ={
 let assetIdTokenA = assetId(IdTokenA)
 let assetIdTokenB =  assetId(IdTokenB)
 let assetIdTokenShare = IdTokenShare.fromBase58String()
-
-
 
 @Callable(contextObj)
 func fund() = {
@@ -88,7 +88,9 @@ func replenishmentWithTwoToken() = {
     if (assetIdReceivedA != assetIdTokenA || assetIdReceivedB != assetIdTokenB ) then throw("incorrect assets") else
     # fraction should be equal 1(multiple by 1000) if depositor replanish with proporion according to actual price
     let tokenRatio = fraction(dAppTokensAmountA,1000000000000*scaleValue3,tokenReceiveAmountA)/fraction(dAppTokensAmountB,1000000000000,tokenReceiveAmountB)
-    if  !(tokenRatio == scaleValue3 ) then throw("incorrect assets amount: amounts must have the contract ratio") else 
+     if  tokenRatio < (scaleValue3*(replanishmentSlippageToleranceDelimeter - replanishmentSlippageTolerance))/replanishmentSlippageToleranceDelimeter || 
+    tokenRatio > (scaleValue3*(replanishmentSlippageToleranceDelimeter + replanishmentSlippageTolerance))/replanishmentSlippageToleranceDelimeter then throw("incorrect assets amount: amounts must have the contract ratio") else 
+
     let shareTokenToPayAmount = fraction(tokenReceiveAmountA,tokenShareSupply,dAppTokensAmountA)
     if ( shareTokenToPayAmount == 0 ) then throw("you try replansish with very small amount") else 
     [

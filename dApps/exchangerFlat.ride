@@ -22,6 +22,8 @@ let scaleValue12 = 1000000000000
 let scaleValue12Digits = 12
 let ratioThresholdMax = 100000000
 let ratioThresholdMin = 99999000
+let replanishmentSlippageTolerance = 100# 1/10 of slippage tolerance for replanishment
+let replanishmentSlippageToleranceDelimeter = 1000
 let alpha = 50 #model coef alpha = 0.15 with 2 digits
 let alphaDigits = 2
 let beta = 46000000 #model coef beta = 0.46 with 8 digits
@@ -171,7 +173,8 @@ func replenishmentWithTwoToken() = {
     if (assetIdReceivedA != assetIdTokenA || assetIdReceivedB != assetIdTokenB ) then throw("incorrect assets") else
     # fraction should be equal 1(multiple by 1000) if depositor replanish with proporion according to actual price
     let tokenRatio = fraction(dAppTokensAmountA,1000000000000*scaleValue3,tokenReceiveAmountA)/fraction(dAppTokensAmountB,1000000000000,tokenReceiveAmountB)
-    if  !(tokenRatio == scaleValue3 ) then throw("incorrect assets amount: amounts must have the contract ratio") else 
+    if  tokenRatio < (scaleValue3*(replanishmentSlippageToleranceDelimeter - replanishmentSlippageTolerance))/replanishmentSlippageToleranceDelimeter || 
+    tokenRatio > (scaleValue3*(replanishmentSlippageToleranceDelimeter + replanishmentSlippageTolerance))/replanishmentSlippageToleranceDelimeter then throw("incorrect assets amount: amounts must have the contract ratio") else 
     let shareTokenToPayAmount = fraction(tokenReceiveAmountA,tokenShareSupply,dAppTokensAmountA)
     if ( shareTokenToPayAmount == 0 ) then throw("you try replansish with very small amount") else 
     [
