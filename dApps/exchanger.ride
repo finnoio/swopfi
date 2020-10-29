@@ -102,41 +102,41 @@ func replenishmentWithTwoToken(replanishmentSlippageTolerance: Int) = {
 }
 
 #if someone ready to replenish in one tokens
-@Callable(contextObj)
-func replanishmentWithOneToken() =   {
-    let payment = value(contextObj.payments[0])
-    let assetIdReceived = payment.assetId
-    let tokenReceiveAmount = payment.amount
-    if(assetIdReceived == assetIdTokenA) then (
-        let newAmountTokenA =  amountTokenA + tokenReceiveAmount
-        let priceAtoBwith8digits = fraction(newAmountTokenA,scaleValue8,amountTokenB)
-        #sqrt(invariant_old/price_new) = sqrt(x_old/price_new)* sqrt(y_old/price_new)
-        let tokenAmountBNewPriceOldInvariant = pow(fraction(amountTokenA,amountTokenB,priceAtoBwith8digits),0,5,1,0,HALFDOWN)
-        let newTokenShareSupply = fraction(amountTokenB,tokenShareSupply,tokenAmountBNewPriceOldInvariant)
-        let shareTokenToPayAmount = newTokenShareSupply-tokenShareSupply
-        [
-        Reissue(assetIdTokenShare,shareTokenToPayAmount,true),
-        ScriptTransfer(contextObj.caller, shareTokenToPayAmount, assetIdTokenShare),
-        IntegerEntry("share_token_supply", tokenShareSupply + shareTokenToPayAmount),
-        IntegerEntry("amountTokenA", newAmountTokenA)
-        ]
-    )
-    else if (assetIdReceived == assetIdTokenB) then (
-        let newAmountTokenB =  amountTokenB + tokenReceiveAmount
-        let priceAtoBwith8digits = fraction(amountTokenA,scaleValue8,newAmountTokenB)
-        #sqrt(invariant_old/price_new) = sqrt(x_old/price_new)* sqrt(y_old/price_new)
-        let tokenAmountBNewPriceOldInvariant = pow(fraction(amountTokenA,amountTokenB,priceAtoBwith8digits),0,5,1,0,HALFDOWN)
-        let newTokenShareSupply = fraction(amountTokenB,tokenShareSupply,tokenAmountBNewPriceOldInvariant)
-        let shareTokenToPayAmount = newTokenShareSupply-tokenShareSupply
-        [
-        Reissue(assetIdTokenShare,shareTokenToPayAmount,true),
-        ScriptTransfer(contextObj.caller, shareTokenToPayAmount, assetIdTokenShare),
-        IntegerEntry("share_token_supply", tokenShareSupply + shareTokenToPayAmount),
-        IntegerEntry("amountTokenB", newAmountTokenB)
-        ]
-    )
-    else throw("incorrect assets in payment")  
-}
+# @Callable(contextObj)
+# func replanishmentWithOneToken() =   {
+#     let payment = value(contextObj.payments[0])
+#     let assetIdReceived = payment.assetId
+#     let tokenReceiveAmount = payment.amount
+#     if(assetIdReceived == assetIdTokenA) then (
+#         let newAmountTokenA =  amountTokenA + tokenReceiveAmount
+#         let priceAtoBwith8digits = fraction(newAmountTokenA,scaleValue8,amountTokenB)
+#         #sqrt(invariant_old/price_new) = sqrt(x_old/price_new)* sqrt(y_old/price_new)
+#         let tokenAmountBNewPriceOldInvariant = pow(fraction(amountTokenA,amountTokenB,priceAtoBwith8digits),0,5,1,0,HALFDOWN)
+#         let newTokenShareSupply = fraction(amountTokenB,tokenShareSupply,tokenAmountBNewPriceOldInvariant)
+#         let shareTokenToPayAmount = newTokenShareSupply-tokenShareSupply
+#         [
+#         Reissue(assetIdTokenShare,shareTokenToPayAmount,true),
+#         ScriptTransfer(contextObj.caller, shareTokenToPayAmount, assetIdTokenShare),
+#         IntegerEntry("share_token_supply", tokenShareSupply + shareTokenToPayAmount),
+#         IntegerEntry("amountTokenA", newAmountTokenA)
+#         ]
+#     )
+#     else if (assetIdReceived == assetIdTokenB) then (
+#         let newAmountTokenB =  amountTokenB + tokenReceiveAmount
+#         let priceAtoBwith8digits = fraction(amountTokenA,scaleValue8,newAmountTokenB)
+#         #sqrt(invariant_old/price_new) = sqrt(x_old/price_new)* sqrt(y_old/price_new)
+#         let tokenAmountBNewPriceOldInvariant = pow(fraction(amountTokenA,amountTokenB,priceAtoBwith8digits),0,5,1,0,HALFDOWN)
+#         let newTokenShareSupply = fraction(amountTokenB,tokenShareSupply,tokenAmountBNewPriceOldInvariant)
+#         let shareTokenToPayAmount = newTokenShareSupply-tokenShareSupply
+#         [
+#         Reissue(assetIdTokenShare,shareTokenToPayAmount,true),
+#         ScriptTransfer(contextObj.caller, shareTokenToPayAmount, assetIdTokenShare),
+#         IntegerEntry("share_token_supply", tokenShareSupply + shareTokenToPayAmount),
+#         IntegerEntry("amountTokenB", newAmountTokenB)
+#         ]
+#     )
+#     else throw("incorrect assets in payment")  
+# }
 
 @Callable(contextObj)
 func withdraw() =   {
