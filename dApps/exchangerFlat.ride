@@ -22,7 +22,6 @@ let scaleValue12 = 1000000000000
 let scaleValue12Digits = 12
 let ratioThresholdMax = 100000000
 let ratioThresholdMin = 99999000
-let replanishmentSlippageTolerance = 100# 1/10 of slippage tolerance for replanishment
 let replanishmentSlippageToleranceDelimeter = 1000
 let alpha = 50 #model coef alpha = 0.15 with 2 digits
 let alphaDigits = 2
@@ -162,7 +161,7 @@ func fund() =   {
 
 #if someone ready to replenish in both tokens. It's necessary to bring tokens amount in proportion according to dApp state
 @Callable(contextObj)
-func replenishmentWithTwoToken() = {
+func replenishmentWithTwoToken(replanishmentSlippageTolerance: Int) = {
     let paymentA = value(contextObj.payments[0])
     let paymentB = value(contextObj.payments[1])
     let assetIdReceivedA = paymentA.assetId
