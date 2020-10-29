@@ -8,8 +8,8 @@ let amountTokenB = getIntegerValue(this, "amountTokenB")
 let amountTokenA = getIntegerValue(this, "amountTokenA")
 let IdTokenShare = getStringValue(this,"share_token_id")
 let tokenShareSupply = getIntegerValue(this,"share_token_supply")
-let comission = 500 #comission/comissionScaleDelimiter = 0.0003
-let commisionGovernance = 200 # commisionGovernance/comissionScaleDelimiter = 0.0002
+let comission = 3000 #comission/comissionScaleDelimiter = 0.003
+let commisionGovernance = 1000 # commisionGovernance/comissionScaleDelimiter = 0.001
 let comissionScaleDelimiter = 1000000
 let version = "1.0.0" 
 let scaleValue3 = 1000
