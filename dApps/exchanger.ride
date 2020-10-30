@@ -170,7 +170,7 @@ func exchanger( minTokenRecieve: Int) = {
             let tokenSendAmountWithoutFee =  fraction(amountTokenA,tokenReceiveAmount,tokenReceiveAmount + amountTokenB)
             let tokenSendAmountWithFee = fraction(tokenSendAmountWithoutFee,comissionScaleDelimiter-comission,comissionScaleDelimiter)
             let tokenSendGovernance = fraction(tokenSendAmountWithoutFee,commisionGovernance,comissionScaleDelimiter)
-            if(tokenSendAmountWithFee < minTokenRecieve) then(throw("Price has changed dramaticaly. minTokenRecieve too large")) else
+            if(tokenSendAmountWithFee < minTokenRecieve) then(throw("Price has changed dramatically. minTokenRecieve too large")) else
             let assetIdSend = assetIdTokenA
             # successful execution result is updating information about actual balance and supply into the state and transfer tokens to the caller
             [
@@ -186,7 +186,7 @@ func exchanger( minTokenRecieve: Int) = {
             let tokenSendAmountWithoutFee = (fraction(amountTokenB,tokenReceiveAmount,tokenReceiveAmount + amountTokenA))
             let tokenSendAmountWithFee = fraction(tokenSendAmountWithoutFee,comissionScaleDelimiter-comission,comissionScaleDelimiter)
             let tokenSendGovernance = fraction(tokenSendAmountWithoutFee,commisionGovernance,comissionScaleDelimiter)
-            if(tokenSendAmountWithFee < minTokenRecieve) then(throw("Price has changed dramaticaly. minTokenRecieve too large")) else
+            if(tokenSendAmountWithFee < minTokenRecieve) then(throw("Price has changed dramatically. minTokenRecieve too large")) else
             let assetIdSend = assetIdTokenB
             # successful execution result is updating information about actual balance and supply into the state and transfer tokens to the caller
             [
