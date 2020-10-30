@@ -45,7 +45,7 @@ func fund() = {
     else{    
         let shareTokenName = "ShareT_" + takeRight(toString(this),5)
         let digitsInShareToken = (digitTokenA+digitTokenB)/2
-        # we save 16 digit info with using scaleValue8Digits in pow functions. We divide /scaleValue8 to delete 8 digits and another 8 digits we define as digits in shareToken in Issue tx
+        # calculate shareTokenInitialAmount
         let shareTokenInitialAmount =  fraction(pow(tokenReceiveAmountA,digitTokenA,5,1,digitTokenA,HALFDOWN),pow(tokenReceiveAmountB,digitTokenB,5,1,digitTokenB,HALFDOWN),pow(10,0,digitsInShareToken,0,0,HALFDOWN))
         let shareTokenAssetId = calculateAssetId(Issue(shareTokenName,shareTokenName,shareTokenInitialAmount,digitsInShareToken,true))
 
@@ -160,7 +160,6 @@ func withdraw() =   {
 }
 @Callable(contextObj)
 func exchanger( minTokenRecieve: Int) = {
-    #if(comission < 0 || comission >1000) then(throw("incorrect comission value")) else
     let payment = value(contextObj.payments[0])
     let assetIdReceived = payment.assetId
     let tokenReceiveAmount = payment.amount
@@ -168,11 +167,10 @@ func exchanger( minTokenRecieve: Int) = {
     if(assetIdReceived == assetIdTokenB)
         then
         (
-            #let tokenSendAmount =  (AmountTokenA*scale - fraction(amountTokenB,scale*AmountTokenA,tokenReceiveAmount + amountTokenB))/scale
             let tokenSendAmountWithoutFee =  fraction(amountTokenA,tokenReceiveAmount,tokenReceiveAmount + amountTokenB)
             let tokenSendAmountWithFee = fraction(tokenSendAmountWithoutFee,comissionScaleDelimiter-comission,comissionScaleDelimiter)
             let tokenSendGovernance = fraction(tokenSendAmountWithoutFee,commisionGovernance,comissionScaleDelimiter)
-            if(tokenSendAmountWithFee < minTokenRecieve) then(throw("Price has changed dramaticaly. Receiving token amount don't satisfy specified price level")) else
+            if(tokenSendAmountWithFee < minTokenRecieve) then(throw("Price has changed dramaticaly. minTokenRecieve too large")) else
             let assetIdSend = assetIdTokenA
             # successful execution result is updating information about actual balance and supply into the state and transfer tokens to the caller
             [
@@ -188,7 +186,7 @@ func exchanger( minTokenRecieve: Int) = {
             let tokenSendAmountWithoutFee = (fraction(amountTokenB,tokenReceiveAmount,tokenReceiveAmount + amountTokenA))
             let tokenSendAmountWithFee = fraction(tokenSendAmountWithoutFee,comissionScaleDelimiter-comission,comissionScaleDelimiter)
             let tokenSendGovernance = fraction(tokenSendAmountWithoutFee,commisionGovernance,comissionScaleDelimiter)
-            if(tokenSendAmountWithFee < minTokenRecieve) then(throw("Price has changed dramaticaly. Receiving token amount don't satisfy specified price level")) else
+            if(tokenSendAmountWithFee < minTokenRecieve) then(throw("Price has changed dramaticaly. minTokenRecieve too large")) else
             let assetIdSend = assetIdTokenB
             # successful execution result is updating information about actual balance and supply into the state and transfer tokens to the caller
             [

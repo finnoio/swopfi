@@ -72,7 +72,7 @@ func calculateHowManySendTokenA(amountToSendEstimated: Int, minTokenRecieveAmoun
         else if invariantCalc(amountTokenA-amountToSendStep5,amountTokenB + tokenReceiveAmount)-invariant > 0 then 
             amountToSendStep5*(comissionScaleDelimiter-comission)/comissionScaleDelimiter
         else 
-            throw("price has changed dramatically. err2")    
+            throw("something went wrong while working with amountToSendStep. err2")    
 }
 
 func calculateHowManySendTokenB(amountToSendEstimated: Int, minTokenRecieveAmount: Int, amountTokenA: Int,amountTokenB: Int, tokenReceiveAmount: Int ) ={
@@ -84,7 +84,7 @@ func calculateHowManySendTokenB(amountToSendEstimated: Int, minTokenRecieveAmoun
     let amountToSendStep4 = amountToSendEstimated - 4*deltaBetweenMaxAndMinSendValue/5
     let amountToSendStep5 = amountToSendEstimated - 5*deltaBetweenMaxAndMinSendValue/5
     #before start check last condition. If it wrong we can stop
-    #if invariantCalc(amountTokenA+tokenReceiveAmount,amountTokenB - amountToSendStep5)-invariant < 0 then throw("minTokenRecieveAmount too large.err1") else
+    if invariantCalc(amountTokenA+tokenReceiveAmount,amountTokenB - amountToSendStep5)-invariant < 0 then throw("minTokenRecieveAmount too large.err1") else
     let invariantEstimatedRatio = fraction(invariant,scaleValue8,invariantCalc(amountTokenA+tokenReceiveAmount,amountTokenB - amountToSendEstimated))
     if invariantEstimatedRatio > slippageValue && invariantEstimatedRatio < scaleValue8 then
         amountToSendEstimated
@@ -101,7 +101,7 @@ func calculateHowManySendTokenB(amountToSendEstimated: Int, minTokenRecieveAmoun
         else if invariantCalc(amountTokenA+tokenReceiveAmount,amountTokenB - amountToSendStep5)-invariant > 0 then 
             amountToSendStep5*(comissionScaleDelimiter-comission)/comissionScaleDelimiter
         else 
-        throw("price has changed dramatically. err2")    
+        throw("something went wrong while working with amountToSendStep. err2")    
 }
 
 @Callable(contextObj)
