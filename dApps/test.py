@@ -27,24 +27,24 @@ pw.setNode(node="https://nodes-stagenet.wavesnodes.com", chain_id="S")
 
 ##if true then  throw(toString(invariantCalc(amountTokenA-amountToSendEstimated,amountTokenB + tokenReceiveAmount)) + " "+toString(invariant)) else
     
-test2 = pw.Address(seed = "as1sas22222")
+test2 = pw.Address(seed = "as1sas2222322")
 moneySeed = pw.Address(seed = "mutual essence merry loop margin morning involve vicious air post table faculty primary idea buffalo")
+print(moneySeed)
+# transfer = moneySeed.sendWaves(test2,int(10**8))
+# wait_for_resource_available(transfer["id"],1000)
+# print(transfer)
 
-transfer = moneySeed.sendWaves(test2,int(10**8))
-wait_for_resource_available(transfer["id"],1000)
-print(transfer)
-
-setScript = test2.setScript(script,txFee=1400000)
-#print(setScript)
-wait_for_resource_available(setScript["id"],1000)
+# setScript = test2.setScript(script,txFee=1400000)
+# #print(setScript)
+# wait_for_resource_available(setScript["id"],1000)
 
 
-fund = moneySeed.invokeScript(test2.address, "fund", [], [
-    {"amount": int(10000000000), "assetId": None},{"amount": int(327000000), "assetId":  "4zhPJWeFuPGHfQBsVctk5wqNCRoNVqGtT4YnvKJX6tVN"}], txFee=100900000)
-print(fund)
-statusFund = wait_for_resource_available(
-    fund["id"], 100)
-print(fund)
+# fund = moneySeed.invokeScript(test2.address, "fund", [], [
+#     {"amount": int(10000000000), "assetId": "4zhPJWeFuPGHfQBsVctk5wqNCRoNVqGtT4YnvKJX6tVN"},{"amount": int(327000000), "assetId":  None}], txFee=100900000)
+# print(fund)
+# statusFund = wait_for_resource_available(
+#     fund["id"], 100)
+# print(fund)
 
 # replanish = moneySeed.invokeScript(test2.address, "replenishmentWithTwoToken", [{"type": "integer", "value": int(0) }], [
 #     {"amount": 1310000

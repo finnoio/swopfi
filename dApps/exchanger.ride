@@ -1,6 +1,9 @@
 {-# STDLIB_VERSION 4 #-}
 {-# CONTENT_TYPE DAPP #-}
 {-# SCRIPT_TYPE ACCOUNT #-}
+let adminAddressPubKey1 = base58'289xpUrYrKbLjaKkqH3XNhfecukcYRaDRT3JDrvkvQRU'
+let adminAddressPubKey2 = base58'289xpUrYrKbLjaKkqH3XNhfecukcYRaDRT3JDrvkvQRU'
+let adminAddressPubKey3 = base58'289xpUrYrKbLjaKkqH3XNhfecukcYRaDRT3JDrvkvQRU'
 let governanceAddress = Address(base58'3MSNMcqyweiM9cWpvf4Fn8GAWeuPstxj2hK') 
 let IdTokenA =  getStringValue(this,"assetIdTokenA")
 let IdTokenB =  getStringValue(this,"assetIdTokenB")
@@ -19,7 +22,6 @@ let scaleValue8Digits = 8
 func assetId (asset: String) ={
     if asset == "WAVES" then unit else asset.fromBase58String()
 }
-
 let assetIdTokenA = assetId(IdTokenA)
 let assetIdTokenB =  assetId(IdTokenB)
 let assetIdTokenShare = IdTokenShare.fromBase58String()
@@ -42,21 +44,32 @@ func fund() = {
         }
     if (isDefined(getBoolean(this, "status"))) then
             throw("already active")
-    else{    
-        let shareTokenName = "ShareT_" + takeRight(toString(this),5)
-        let digitsInShareToken = (digitTokenA+digitTokenB)/2
-        # calculate shareTokenInitialAmount
-        let shareTokenInitialAmount =  fraction(pow(tokenReceiveAmountA,digitTokenA,5,1,digitTokenA,HALFDOWN),pow(tokenReceiveAmountB,digitTokenB,5,1,digitTokenB,HALFDOWN),pow(10,0,digitsInShareToken,0,0,HALFDOWN))
-        let shareTokenAssetId = calculateAssetId(Issue(shareTokenName,shareTokenName,shareTokenInitialAmount,digitsInShareToken,true))
-
+    else{
+        #extract tokens name 
+        let asssetNameA = match assetIdReceivedA {
+            case assetIdReceivedA:Unit => "WAVES"
+            case _ =>  value(assetInfo(value(assetIdReceivedA))).name
+        }
+        let asssetNameB = match assetIdReceivedB {
+            case assetIdReceivedB:Unit => "WAVES"
+            case _ =>  value(assetInfo(value(assetIdReceivedB))).name
+        }
+        let shareTokenName = "s" + take(asssetNameA,7) + "_" + take(asssetNameB,7)
+        #extract string of tokens id
         let assetIdTokenStringA = match (assetIdReceivedA) {
-            case t:Unit => "WAVES" 
-            case t:ByteVector => toBase58String(value(assetIdReceivedA))
+        case t:Unit => "WAVES" 
+        case t:ByteVector => toBase58String(value(assetIdReceivedA))
           }
         let assetIdTokenStringB = match(assetIdReceivedB) {
             case t:Unit => "WAVES" 
             case t:ByteVector => toBase58String(value(assetIdReceivedB))
-          }          
+          }  
+        #let shareTokenName = "ShareT_" + takeRight(toString(this),5)
+        let digitsInShareToken = (digitTokenA+digitTokenB)/2
+        # calculate shareTokenInitialAmount
+        let shareTokenInitialAmount =  fraction(pow(tokenReceiveAmountA,digitTokenA,5,1,digitTokenA,HALFDOWN),pow(tokenReceiveAmountB,digitTokenB,5,1,digitTokenB,HALFDOWN),pow(10,0,digitsInShareToken,0,0,HALFDOWN))
+        let description = "ShareToken of SwopFi protocol for " + asssetNameA + " and " + asssetNameB + " at address " + toString(this)
+        let shareTokenAssetId = calculateAssetId(Issue(shareTokenName,description,shareTokenInitialAmount,digitsInShareToken,true))
         [
             IntegerEntry("amountTokenA", tokenReceiveAmountA ),
             IntegerEntry("amountTokenB", tokenReceiveAmountB ),
@@ -66,7 +79,7 @@ func fund() = {
             IntegerEntry("comission",comission),
             IntegerEntry("comissionScaleDelimiter",comissionScaleDelimiter),
             StringEntry("version", version),
-            Issue(shareTokenName,shareTokenName,shareTokenInitialAmount,digitsInShareToken,true),
+            Issue(shareTokenName,description,shareTokenInitialAmount,digitsInShareToken,true),
             ScriptTransfer(contextObj.caller, shareTokenInitialAmount, shareTokenAssetId),
             StringEntry("share_token_id", toBase58String(shareTokenAssetId)),
             IntegerEntry("share_token_supply", shareTokenInitialAmount)
@@ -84,6 +97,7 @@ func replenishmentWithTwoToken(replanishmentSlippageTolerance: Int) = {
     let tokenReceiveAmountB = paymentB.amount
     let dAppTokensAmountA = getIntegerValue(this, "amountTokenA")
     let dAppTokensAmountB = getIntegerValue(this, "amountTokenB")
+    if this.getBooleanValue("status") != true then throw("status: Unactive") else
     if (assetIdReceivedA != assetIdTokenA || assetIdReceivedB != assetIdTokenB ) then throw("incorrect assets") else
     # fraction should be equal 1(multiple by 1000) if depositor replanish with proporion according to actual price
     let tokenRatio = fraction(dAppTokensAmountA,scaleValue8*scaleValue3,tokenReceiveAmountA)/fraction(dAppTokensAmountB,scaleValue8,tokenReceiveAmountB)
@@ -107,6 +121,7 @@ func replenishmentWithTwoToken(replanishmentSlippageTolerance: Int) = {
 #     let payment = value(contextObj.payments[0])
 #     let assetIdReceived = payment.assetId
 #     let tokenReceiveAmount = payment.amount
+#     if this.getBooleanValue("status") != true then throw("status: Unactive") else
 #     if(assetIdReceived == assetIdTokenA) then (
 #         let newAmountTokenA =  amountTokenA + tokenReceiveAmount
 #         let priceAtoBwith8digits = fraction(newAmountTokenA,scaleValue8,amountTokenB)
@@ -197,4 +212,24 @@ func exchanger( minTokenRecieve: Int) = {
             ]   
         )
     else throw("Asset is not allowed"))
+}
+
+@Callable(contextObj)
+func shutdown() = {
+    if contextObj.callerPublicKey == adminAddressPubKey1 ||  
+       contextObj.callerPublicKey == adminAddressPubKey2 ||
+       contextObj.callerPublicKey == adminAddressPubKey3 then
+       [
+           BooleanEntry("status", false)
+       ]
+    else
+        throw("only adminAddress can call this function")
+}
+
+@Verifier(tx)
+func verify() = {
+    let adminAddressPubKey1Signed  = if(sigVerify(tx.bodyBytes, tx.proofs[0], adminAddressPubKey1  )) then 1 else 0
+    let adminAddressPubKey2Signed    = if(sigVerify(tx.bodyBytes, tx.proofs[1], adminAddressPubKey2    )) then 1 else 0
+    let adminAddressPubKey3Signed = if(sigVerify(tx.bodyBytes, tx.proofs[2], adminAddressPubKey3 )) then 1 else 0
+    adminAddressPubKey1Signed + adminAddressPubKey2Signed + adminAddressPubKey3Signed >= 2
 }

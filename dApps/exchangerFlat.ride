@@ -1,6 +1,9 @@
 {-# STDLIB_VERSION 4 #-}
 {-# CONTENT_TYPE DAPP #-}
 {-# SCRIPT_TYPE ACCOUNT #-}
+let adminAddressPubKey1 = base58'289xpUrYrKbLjaKkqH3XNhfecukcYRaDRT3JDrvkvQRU'
+let adminAddressPubKey2 = base58'289xpUrYrKbLjaKkqH3XNhfecukcYRaDRT3JDrvkvQRU'
+let adminAddressPubKey3 = base58'289xpUrYrKbLjaKkqH3XNhfecukcYRaDRT3JDrvkvQRU'
 let governanceAddress = Address(base58'3MS55nqhYKLbLZmRExmUN3H6RSWkr9c2VC5') 
 let IdTokenA =  getStringValue(this,"assetIdTokenA")
 let IdTokenB =  getStringValue(this,"assetIdTokenB")
@@ -123,13 +126,23 @@ func fund() =   {
     if (isDefined(getBoolean(this, "status"))) then
             throw("already active")
     else{
-
-        let shareTokenName = "ShareT_" + takeRight(toString(this),5)
+        #extract tokens name 
+        let asssetNameA = match assetIdReceivedA {
+            case assetIdReceivedA:Unit => "WAVES"
+            case _ =>  value(assetInfo(value(assetIdReceivedA))).name
+        }
+        let asssetNameB = match assetIdReceivedB {
+            case assetIdReceivedB:Unit => "WAVES"
+            case _ =>  value(assetInfo(value(assetIdReceivedB))).name
+        }
+        let shareTokenName = "s" + take(asssetNameA,7) + "_" + take(asssetNameB,7)
         # we save 16 digit info with using scaleValue8Digits in pow functions. We divide /scaleValue8 to delete 8 digits and another 8 digits we define as digits in shareToken in Issue tx
         let digitsInShareToken = (digitTokenA+digitTokenB)/2
         # we save 16 digit info with using scaleValue8Digits in pow functions. We divide /scaleValue8 to delete 8 digits and another 8 digits we define as digits in shareToken in Issue tx
         let shareTokenInitialAmount =  fraction(pow(tokenReceiveAmountA,digitTokenA,5,1,digitTokenA,HALFDOWN),pow(tokenReceiveAmountB,digitTokenB,5,1,digitTokenB,HALFDOWN),pow(10,0,digitsInShareToken,0,0,HALFDOWN))
-        let shareTokenAssetId = calculateAssetId(Issue(shareTokenName,shareTokenName,shareTokenInitialAmount,digitsInShareToken,true))
+        let description = "ShareToken of SwopFi protocol for " + asssetNameA + " and " + asssetNameB + " at address " + toString(this)
+        let shareTokenAssetId = calculateAssetId(Issue(shareTokenName,description,shareTokenInitialAmount,digitsInShareToken,true))
+        #extract string of tokens id
         let assetIdTokenStringA = match (assetIdReceivedA) {
             case t:Unit => "WAVES" 
             case t:ByteVector => toBase58String(value(assetIdReceivedA))
@@ -138,7 +151,7 @@ func fund() =   {
             case t:Unit => "WAVES" 
             case t:ByteVector => toBase58String(value(assetIdReceivedB))
           }
-
+        
         let invariantCalcualated = invariantCalc(tokenReceiveAmountA,tokenReceiveAmountB)  
         #if true then throw(toString(invariantCalcualated)) else
         [
@@ -151,7 +164,7 @@ func fund() =   {
             IntegerEntry("comission",comission),
             IntegerEntry("comissionScaleDelimiter",comissionScaleDelimiter),
             StringEntry("version", version),
-            Issue(shareTokenName,shareTokenName,shareTokenInitialAmount,digitsInShareToken,true),
+            Issue(shareTokenName,description,shareTokenInitialAmount,digitsInShareToken,true),
             ScriptTransfer(contextObj.caller, shareTokenInitialAmount, shareTokenAssetId),
             StringEntry("share_token_id", toBase58String(shareTokenAssetId)),
             IntegerEntry("share_token_supply", shareTokenInitialAmount)
@@ -168,7 +181,8 @@ func replenishmentWithTwoToken(replanishmentSlippageTolerance: Int) = {
     let tokenReceiveAmountA = paymentA.amount
     let assetIdReceivedB = paymentB.assetId
     let tokenReceiveAmountB = paymentB.amount
-    let invariantCalcualated = invariantCalc(dAppTokensAmountA + tokenReceiveAmountA, dAppTokensAmountB + tokenReceiveAmountB)    
+    let invariantCalcualated = invariantCalc(dAppTokensAmountA + tokenReceiveAmountA, dAppTokensAmountB + tokenReceiveAmountB)  
+    if this.getBooleanValue("status") != true then throw("status: Unactive") else  
     if (assetIdReceivedA != assetIdTokenA || assetIdReceivedB != assetIdTokenB ) then throw("incorrect assets") else
     # fraction should be equal 1(multiple by 1000) if depositor replanish with proporion according to actual price
     let tokenRatio = fraction(dAppTokensAmountA,scaleValue8*scaleValue3,tokenReceiveAmountA)/fraction(dAppTokensAmountB,scaleValue8,tokenReceiveAmountB)
@@ -192,6 +206,7 @@ func replenishmentWithTwoToken(replanishmentSlippageTolerance: Int) = {
 #     let payment = value(contextObj.payments[0])
 #     let assetIdReceived = payment.assetId
 #     let tokenReceiveAmount = payment.amount
+#     if this.getBooleanValue("status") != true then throw("status: Unactive") else
 #     if(assetIdReceived == assetIdTokenA) then (
 #         let newAmountTokenA =  dAppTokensAmountA + tokenReceiveAmount
 #         let newInvariant = invariantCalc(newAmountTokenA,dAppTokensAmountB)
@@ -239,7 +254,6 @@ func replenishmentWithTwoToken(replanishmentSlippageTolerance: Int) = {
 
 @Callable(contextObj)
 func withdraw() =   {
-
     let payment = value(contextObj.payments[0])
     let assetIdReceived = payment.assetId
     let tokenReceiveAmount = payment.amount
@@ -308,4 +322,24 @@ func exchanger( amountToSendEstimated: Int, minTokenRecieveAmount: Int ) = {
             ]   
         )
     else throw("Asset is not allowed"))
+}
+
+@Callable(contextObj)
+func shutdown() = {
+    if contextObj.callerPublicKey == adminAddressPubKey1 ||  
+       contextObj.callerPublicKey == adminAddressPubKey2 ||
+       contextObj.callerPublicKey == adminAddressPubKey3 then
+       [
+           BooleanEntry("status", false)
+       ]
+    else
+        throw("only adminAddress can call this function")
+}
+
+@Verifier(tx)
+func verify() = {
+    let adminAddressPubKey1Signed  = if(sigVerify(tx.bodyBytes, tx.proofs[0], adminAddressPubKey1  )) then 1 else 0
+    let adminAddressPubKey2Signed    = if(sigVerify(tx.bodyBytes, tx.proofs[1], adminAddressPubKey2    )) then 1 else 0
+    let adminAddressPubKey3Signed = if(sigVerify(tx.bodyBytes, tx.proofs[2], adminAddressPubKey3 )) then 1 else 0
+    adminAddressPubKey1Signed + adminAddressPubKey2Signed + adminAddressPubKey3Signed >= 2
 }

@@ -30,8 +30,10 @@ assetId1 = "EbgcoV8AoM7sPFav3tueLcQyLicz255Et1hZMfZxaJn2"
 assetId2 = "4zhPJWeFuPGHfQBsVctk5wqNCRoNVqGtT4YnvKJX6tVN"
 
 #test2 = pw.Address(seed = str(random.randint(1, 100000000000000000000)) + "a")
-test2 = pw.Address(seed = str("i1"))
+test2 = pw.Address(seed = str("i1223"))
 moneySeed = pw.Address(seed = "mutual essence merry loop margin morning involve vicious air post table faculty primary idea buffalo")
+print(test2)
+
 
 # transfer = moneySeed.sendWaves(test2,int(140000000))
 # wait_for_resource_available(transfer["id"],1000)
@@ -48,7 +50,12 @@ moneySeed = pw.Address(seed = "mutual essence merry loop margin morning involve 
 #     fund["id"], 100)
 # print(fund)
 
+
 # invoke = moneySeed.invokeScript(test2.address, "exchanger", [{"type": "integer", "value": int(99997291) },{"type": "integer", "value":int(99997291)}], [{ "amount": 100000000, "assetId": assetId1 }], txFee=1000000)
+# print(invoke)
+# wait_for_resource_available(invoke["id"],1000)
+
+# invoke = moneySeed.invokeScript(test2.address, "shutdown", [], [], txFee=1000000)
 # print(invoke)
 # wait_for_resource_available(invoke["id"],1000)
 
