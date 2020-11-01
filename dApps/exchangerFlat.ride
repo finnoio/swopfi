@@ -201,56 +201,74 @@ func replenishmentWithTwoToken(replanishmentSlippageTolerance: Int) = {
 }
 
 #if someone ready to replenish in one tokens
-# @Callable(contextObj)
-# func replanishmentWithOneToken(tokenAamountWithOldInvariantNewPrice :Int,tokenBamountWithOldInvariantNewPrice :Int) =   {
-#     let payment = value(contextObj.payments[0])
-#     let assetIdReceived = payment.assetId
-#     let tokenReceiveAmount = payment.amount
-#     if this.getBooleanValue("status") != true then throw("status: Unactive") else
-#     if(assetIdReceived == assetIdTokenA) then (
-#         let newAmountTokenA =  dAppTokensAmountA + tokenReceiveAmount
-#         let newInvariant = invariantCalc(newAmountTokenA,dAppTokensAmountB)
-#         #check input args for price correctness
-#         let priceAtoBwith8digits = fraction(newAmountTokenA,scaleValue8,dAppTokensAmountB)
-#         let isCorrectPriceRation = fraction(tokenBamountWithOldInvariantNewPrice,priceAtoBwith8digits,tokenAamountWithOldInvariantNewPrice)
-#         if isCorrectPriceRation > ratioThresholdMax ||  isCorrectPriceRation < ratioThresholdMin then throw("incorrect function args: price") else
-#         #check input args for invariant correctness
-#         let calculatedInvariantWithNewPrice = invariantCalc(tokenAamountWithOldInvariantNewPrice,tokenBamountWithOldInvariantNewPrice)
-#         let isCorrectInvariantRation = fraction(calculatedInvariantWithNewPrice,scaleValue8,invariant)
-#         if isCorrectInvariantRation > ratioThresholdMax ||  isCorrectInvariantRation < ratioThresholdMin then throw("incorrect function args: invariant") else
-#         let newTokenShareSupply = fraction(tokenBamountWithOldInvariantNewPrice,tokenShareSupply,dAppTokensAmountB)
-#         let shareTokenToPayAmount = newTokenShareSupply-tokenShareSupply
-#         [
-#         Reissue(assetIdTokenShare,shareTokenToPayAmount,true),
-#         ScriptTransfer(contextObj.caller, shareTokenToPayAmount, assetIdTokenShare),
-#         IntegerEntry("share_token_supply", tokenShareSupply + shareTokenToPayAmount),
-#         IntegerEntry("amountTokenA", newAmountTokenA),
-#         IntegerEntry("invariant", newInvariant)
-#         ]
-#     )
-#     else if (assetIdReceived == assetIdTokenB) then (
-#         let newAmountTokenB =  dAppTokensAmountB + tokenReceiveAmount
-#         let newInvariant = invariantCalc(dAppTokensAmountA,newAmountTokenB)
-#         #check input args for price correctness
-#         let priceAtoBwith8digits = fraction(dAppTokensAmountA,scaleValue8,newAmountTokenB)
-#         let isCorrectPriceRation = fraction(tokenBamountWithOldInvariantNewPrice,priceAtoBwith8digits,tokenAamountWithOldInvariantNewPrice)
-#         if isCorrectPriceRation > ratioThresholdMax ||  isCorrectPriceRation < ratioThresholdMin then throw("incorrect function args: price") else
-#         #check input args for invariant correctness
-#         let calculatedInvariantWithNewPrice = invariantCalc(tokenAamountWithOldInvariantNewPrice,tokenBamountWithOldInvariantNewPrice)
-#         let isCorrectInvariantRation = fraction(calculatedInvariantWithNewPrice,scaleValue8,invariant)
-#         if isCorrectInvariantRation > ratioThresholdMax ||  isCorrectInvariantRation < ratioThresholdMin then throw("incorrect function args: invariant") else
-#         let newTokenShareSupply = fraction(tokenBamountWithOldInvariantNewPrice,tokenShareSupply,dAppTokensAmountB)
-#         let shareTokenToPayAmount = newTokenShareSupply-tokenShareSupply
-#         [
-#         Reissue(assetIdTokenShare,shareTokenToPayAmount,true),
-#         ScriptTransfer(contextObj.caller, shareTokenToPayAmount, assetIdTokenShare),
-#         IntegerEntry("share_token_supply", tokenShareSupply + shareTokenToPayAmount),
-#         IntegerEntry("amountTokenB", newAmountTokenB),
-#         IntegerEntry("invariant", newInvariant)
-#         ]
-#     )
-#     else throw("incorrect assets in payment")  
-# }
+@Callable(contextObj)
+func replanishmentWithOneToken(virtualSwapTokenPay :Int,virtualSwapTokenGet :Int) =   {
+    let amountTokenB = getIntegerValue(this, "amountTokenB")
+    let amountTokenA = getIntegerValue(this, "amountTokenA")
+    let payment = value(contextObj.payments[0])
+    let assetIdReceived = payment.assetId
+    let tokenReceiveAmount = payment.amount
+    let slippageValueMin = scaleValue8 - scaleValue8*1/10000000 # 0.000001% of slippage
+    let slippageValueMax = scaleValue8 + scaleValue8*1/10000000
+    if this.getBooleanValue("status") != true then throw("status: Unactive") else
+    if(assetIdReceived == assetIdTokenA) then (
+
+            let amountVirtualReplanishTokenA = tokenReceiveAmount - virtualSwapTokenPay
+            let amountVirtualReplanishTokenB = virtualSwapTokenGet
+            let contractBalanceAfterVirtualSwapTokenA = amountTokenA+virtualSwapTokenPay
+            let contractBalanceAfterVirtualSwapTokenB = amountTokenB - virtualSwapTokenGet
+
+            let invariantEstimatedRatio = fraction(invariant,scaleValue8,invariantCalc(contractBalanceAfterVirtualSwapTokenA,contractBalanceAfterVirtualSwapTokenB))
+            if invariantEstimatedRatio > slippageValueMin && invariantEstimatedRatio <= scaleValue8 then 
+                (
+                    let ratioVirtualBalanceToVirtualReplanish = fraction(contractBalanceAfterVirtualSwapTokenA,scaleValue8*scaleValue8,contractBalanceAfterVirtualSwapTokenB)
+                                                                    /fraction(amountVirtualReplanishTokenA,scaleValue8,amountVirtualReplanishTokenB)
+                    if ratioVirtualBalanceToVirtualReplanish < slippageValueMin || ratioVirtualBalanceToVirtualReplanish > slippageValueMax then 
+                                        throw("swop with virtualSwapTokenPay and virtualSwapTokenGet possible, but ratio after virtual swap incorrect") else(
+                        let ratioShareTokensInA = fraction(amountVirtualReplanishTokenA,scaleValue8,contractBalanceAfterVirtualSwapTokenA)
+                        let ratioShareTokensInB =  fraction(amountVirtualReplanishTokenB,scaleValue8,contractBalanceAfterVirtualSwapTokenB)
+                        let shareTokenToPayAmount = if ratioShareTokensInA <= ratioShareTokensInB then fraction(ratioShareTokensInA,tokenShareSupply,scaleValue8) else fraction(ratioShareTokensInB,tokenShareSupply,scaleValue8)
+                        let invariantCalcualated = invariantCalc(amountTokenA+tokenReceiveAmount,amountTokenB)
+                        [
+                            Reissue(assetIdTokenShare,shareTokenToPayAmount,true),
+                            ScriptTransfer(contextObj.caller, shareTokenToPayAmount, assetIdTokenShare),
+                            IntegerEntry("share_token_supply", tokenShareSupply + shareTokenToPayAmount),
+                            IntegerEntry("amountTokenA", dAppTokensAmountA + tokenReceiveAmount),
+                            IntegerEntry("invariant", invariantCalcualated)]
+                        )
+                )
+            else throw("incorrect virtualSwapTokenPay or virtualSwapTokenGet value")
+
+    )
+    else if (assetIdReceived == assetIdTokenB) then (
+
+            let amountVirtualReplanishTokenB = tokenReceiveAmount - virtualSwapTokenPay
+            let amountVirtualReplanishTokenA = virtualSwapTokenGet
+            let contractBalanceAfterVirtualSwapTokenA = amountTokenA - virtualSwapTokenGet
+            let contractBalanceAfterVirtualSwapTokenB = amountTokenB + virtualSwapTokenPay
+            let invariantEstimatedRatio = fraction(invariant,scaleValue8,invariantCalc(contractBalanceAfterVirtualSwapTokenA,contractBalanceAfterVirtualSwapTokenB))
+            if invariantEstimatedRatio > slippageValueMin && invariantEstimatedRatio <= scaleValue8 then 
+                (
+                    let ratioVirtualBalanceToVirtualReplanish = fraction(contractBalanceAfterVirtualSwapTokenA,scaleValue8*scaleValue8,contractBalanceAfterVirtualSwapTokenB)
+                                                                    /fraction(amountVirtualReplanishTokenA,scaleValue8,amountVirtualReplanishTokenB)
+                    if ratioVirtualBalanceToVirtualReplanish < slippageValueMin || ratioVirtualBalanceToVirtualReplanish > slippageValueMax then 
+                                        throw("swop with virtualSwapTokenPay and virtualSwapTokenGet possible, but ratio after virtual swap incorrect") else(
+                        let ratioShareTokensInA = fraction(amountVirtualReplanishTokenA,scaleValue8,contractBalanceAfterVirtualSwapTokenA)
+                        let ratioShareTokensInB =  fraction(amountVirtualReplanishTokenB,scaleValue8,contractBalanceAfterVirtualSwapTokenB)
+                        let shareTokenToPayAmount = if ratioShareTokensInA <= ratioShareTokensInB then fraction(ratioShareTokensInA,tokenShareSupply,scaleValue8) else fraction(ratioShareTokensInB,tokenShareSupply,scaleValue8)
+                        let invariantCalcualated = invariantCalc(amountTokenA,amountTokenB+tokenReceiveAmount)
+                        [
+                            Reissue(assetIdTokenShare,shareTokenToPayAmount,true),
+                            ScriptTransfer(contextObj.caller, shareTokenToPayAmount, assetIdTokenShare),
+                            IntegerEntry("share_token_supply", tokenShareSupply + shareTokenToPayAmount),
+                            IntegerEntry("amountTokenB", dAppTokensAmountB + tokenReceiveAmount),
+                            IntegerEntry("invariant", invariantCalcualated)]
+                        )
+                )
+            else throw("incorrect virtualSwapTokenPay or virtualSwapTokenGet value")
+    )
+    else throw("incorrect assets in payment")  
+}
 
 @Callable(contextObj)
 func withdraw() =   {
