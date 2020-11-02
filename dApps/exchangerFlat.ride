@@ -188,7 +188,10 @@ func replenishmentWithTwoToken(replanishmentSlippageTolerance: Int) = {
     let tokenRatio = fraction(dAppTokensAmountA,scaleValue8*scaleValue3,tokenReceiveAmountA)/fraction(dAppTokensAmountB,scaleValue8,tokenReceiveAmountB)
     if  tokenRatio < (scaleValue3*(replanishmentSlippageToleranceDelimeter - replanishmentSlippageTolerance))/replanishmentSlippageToleranceDelimeter || 
     tokenRatio > (scaleValue3*(replanishmentSlippageToleranceDelimeter + replanishmentSlippageTolerance))/replanishmentSlippageToleranceDelimeter then throw("incorrect assets amount: amounts must have the contract ratio") else 
-    let shareTokenToPayAmount = fraction(tokenReceiveAmountA,tokenShareSupply,dAppTokensAmountA)
+    
+    let ratioShareTokensInA = fraction(tokenReceiveAmountA,scaleValue8,dAppTokensAmountA)
+    let ratioShareTokensInB =  fraction(tokenReceiveAmountB,scaleValue8,dAppTokensAmountB)
+    let shareTokenToPayAmount = if ratioShareTokensInA <= ratioShareTokensInB then fraction(ratioShareTokensInA,tokenShareSupply,scaleValue8) else fraction(ratioShareTokensInB,tokenShareSupply,scaleValue8)
     if ( shareTokenToPayAmount == 0 ) then throw("you try replansish with very small amount") else 
     [
         Reissue(assetIdTokenShare,shareTokenToPayAmount,true),

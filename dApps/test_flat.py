@@ -30,24 +30,31 @@ assetId1 = "EbgcoV8AoM7sPFav3tueLcQyLicz255Et1hZMfZxaJn2"
 assetId2 = "4zhPJWeFuPGHfQBsVctk5wqNCRoNVqGtT4YnvKJX6tVN"
 
 #test2 = pw.Address(seed = str(random.randint(1, 100000000000000000000)) + "a")
-test2 = pw.Address(seed = str("i12s2S32"))
+test2 = pw.Address(seed = str("i12s22S32"))
 moneySeed = pw.Address(seed = "mutual essence merry loop margin morning involve vicious air post table faculty primary idea buffalo")
 
 
-# transfer = moneySeed.sendWaves(test2,int(140000000))
-# wait_for_resource_available(transfer["id"],1000)
-# print(transfer)
+transfer = moneySeed.sendWaves(test2,int(140000000))
+wait_for_resource_available(transfer["id"],1000)
+print(transfer)
 
 setScript = test2.setScript(script,txFee=1400000)
 # print(setScript)
 wait_for_resource_available(setScript["id"],1000)
 
-# fund = moneySeed.invokeScript(test2.address, "fund", [], [
-#     {"amount": int(500000*1e6), "assetId": assetId1 },{"amount": int(500000*1e6), "assetId": assetId2}], txFee=100900000)
-# print(fund)
-# statusFund = wait_for_resource_available(
-#     fund["id"], 100)
-# print(fund)
+fund = moneySeed.invokeScript(test2.address, "fund", [], [
+    {"amount": int(500000*1e6), "assetId": assetId1 },{"amount": int(500000*1e6), "assetId": assetId2}], txFee=100900000)
+print(fund)
+statusFund = wait_for_resource_available(
+    fund["id"], 100)
+print(fund)
+
+replanish = moneySeed.invokeScript(test2.address, "replenishmentWithTwoToken", [{"type": "integer", "value": int(10) }], [
+    {"amount": 6000000, "assetId": assetId1},
+    {"amount": 6000000, "assetId": assetId2}], txFee=1000000)
+print(replanish)
+statusreplanish = wait_for_resource_available(
+    replanish["id"], 1000)
 
 # invoke = moneySeed.invokeScript(test2.address, "exchanger", [{"type": "integer", "value": int(99997291) },{"type": "integer", "value":int(99997291)}], [{ "amount": 100000000, "assetId": assetId1 }], txFee=1000000)
 # print(invoke)
