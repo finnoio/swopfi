@@ -55,7 +55,7 @@ func init() = {
 
     if getBoolean(this, keyActive).isDefined() then
         throw("already active")
-    else if assetIdA == assetIdB then
+    else if pmtAssetIdA == pmtAssetIdB then
         throw("assets must be different")
     else {
         let shareName = "s" + assetNameA.take(7) + "_" + assetNameB.take(7)
