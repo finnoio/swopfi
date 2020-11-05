@@ -170,26 +170,26 @@ func exchange(minAmountToReceive: Int) = {
     else if i.payments.size() != 1 then
         throw("One attached payment expected")
     else if pmtAssetId == assetIdA then {
+        let assetIdSend = assetIdB
         let (amountWithoutFee, amountWithFee, governanceReward) = calculateFees(balanceA, balanceB)
-        let assetId = assetIdB
 
         # successful execution result is updating information about actual balance and supply into the state and transfer tokens to the caller
         [
             IntegerEntry(keyBalanceA, balanceA + pmtAmount),
             IntegerEntry(keyBalanceB, balanceB - amountWithFee - governanceReward),
-            ScriptTransfer(i.caller, amountWithFee, assetId),
-            ScriptTransfer(governanceAddress, governanceReward, assetId)
+            ScriptTransfer(i.caller, amountWithFee, assetIdSend),
+            ScriptTransfer(governanceAddress, governanceReward, assetIdSend)
         ]
     } else if pmtAssetId == assetIdB then {
+        let assetIdSend = assetIdA
         let (amountWithoutFee, amountWithFee, governanceReward) = calculateFees(balanceB, balanceA)
-        let assetId = assetIdA
 
         # successful execution result is updating information about actual balance and supply into the state and transfer tokens to the caller
         [
             IntegerEntry(keyBalanceA, balanceA - amountWithFee - governanceReward),
             IntegerEntry(keyBalanceB, balanceB + pmtAmount),
-            ScriptTransfer(i.caller, amountWithFee, assetId),
-            ScriptTransfer(governanceAddress, governanceReward, assetId)
+            ScriptTransfer(i.caller, amountWithFee, assetIdSend),
+            ScriptTransfer(governanceAddress, governanceReward, assetIdSend)
         ]
     } else
         throw("Incorrect asset attached. Expected: " + strAssetIdA + " or " + strAssetIdB)
