@@ -126,7 +126,6 @@ class SwopfiTest {
         );
     }
 
-    @Disabled
     @ParameterizedTest(name = "firstCaller exchanges {1} tokenA")
     @MethodSource("aExchangerProvider")
     void b_canExchangeA(Account exchanger, int exchTokenAmount) {
@@ -179,7 +178,6 @@ class SwopfiTest {
         );
     }
 
-    @Disabled
     @ParameterizedTest(name = "firstCaller exchanges {1} tokenB")
     @MethodSource("bExchangerProvider")
     void c_canExchangeB(Account exchanger, int exchTokenAmount) {
@@ -229,7 +227,6 @@ class SwopfiTest {
                 Arguments.of(thirdExchanger));
     }
 
-    @Disabled
     @ParameterizedTest(name = "secondCaller replenish A/B by twice")
     @MethodSource("replenishByTwiceProvider")
     void c_secondCallerReplenishByTwice(Account exchanger) {
@@ -254,6 +251,8 @@ class SwopfiTest {
         assertAll("data and balances",
                 () -> assertThat(exchanger.dataInt("A_asset_balance")).isEqualTo(amountTokenABefore + amountTokenABefore),
                 () -> assertThat(exchanger.dataInt("B_asset_balance")).isEqualTo(amountTokenBBefore + amountTokenBBefore),
+                () -> assertThat(exchanger.balance(tokenA)).isEqualTo(amountTokenABefore + amountTokenABefore),
+                () -> assertThat(exchanger.balance(tokenB)).isEqualTo(amountTokenBBefore + amountTokenBBefore),
                 () -> assertThat(exchanger.dataStr("A_asset_id")).isEqualTo(tokenA),
                 () -> assertThat(exchanger.dataStr("B_asset_id")).isEqualTo(tokenB),
                 () -> assertThat(exchanger.dataBool("active")).isEqualTo(true),
@@ -274,7 +273,6 @@ class SwopfiTest {
                 Arguments.of(thirdExchanger));
     }
 
-    @Disabled
     @ParameterizedTest(name = "secondCaller withdraw A/B by twice")
     @MethodSource("withdrawByTwiceProvider")
     void d_secondCallerWithdrawAB(Account exchanger) {
@@ -300,6 +298,8 @@ class SwopfiTest {
         assertAll("data and balances",
                 () -> assertThat(exchanger.dataInt("A_asset_balance")).isEqualTo(dAppTokensAmountA - tokensToPayA),
                 () -> assertThat(exchanger.dataInt("B_asset_balance")).isEqualTo(dAppTokensAmountB - tokensToPayB),
+                () -> assertThat(exchanger.balance(tokenA)).isEqualTo(dAppTokensAmountA - tokensToPayA),
+                () -> assertThat(exchanger.balance(tokenB)).isEqualTo(dAppTokensAmountB - tokensToPayB),
                 () -> assertThat(exchanger.dataStr("A_asset_id")).isEqualTo(tokenA),
                 () -> assertThat(exchanger.dataStr("B_asset_id")).isEqualTo(tokenB),
                 () -> assertThat(exchanger.dataBool("active")).isEqualTo(true),
@@ -368,6 +368,8 @@ class SwopfiTest {
         assertAll("data and balances",
                 () -> assertThat(exchanger.dataInt("A_asset_balance")).isEqualTo(balanceA + replenishAmounts.get("pmtAmountA")),
                 () -> assertThat(exchanger.dataInt("B_asset_balance")).isEqualTo(balanceB + pmtAmountB),
+                () -> assertThat(exchanger.balance(tokenA)).isEqualTo(balanceA + replenishAmounts.get("pmtAmountA")),
+                () -> assertThat(exchanger.balance(tokenB)).isEqualTo(balanceB + pmtAmountB),
                 () -> assertThat(exchanger.dataStr("A_asset_id")).isEqualTo(tokenA),
                 () -> assertThat(exchanger.dataStr("B_asset_id")).isEqualTo(tokenB),
                 () -> assertThat(exchanger.dataBool("active")).isEqualTo(true),
