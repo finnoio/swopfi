@@ -37,6 +37,8 @@ class SwopfiTest {
     private int commission = 3000;
     private int commisionGovernance = 1200;
     private int commissionScaleDelimiter = 1000000;
+    private int slippageToleranceDelimiter = 1000;
+    private int scaleValue8 = 100000000;
     private String version = "1.0.0";
     private HashMap<Account, String> shareTokenIds = new HashMap<>();
     private String dAppScript = fromFile("dApps/exchanger.ride")
@@ -60,8 +62,8 @@ class SwopfiTest {
                 },
                 () -> {
                     firstCaller = new Account(1000_00000000L);
-                    tokenA = firstCaller.issues(a -> a.quantity(20000000_00000000L).name("tokenA").decimals(aDecimal)).getId().toString();
-                    tokenB = firstCaller.issues(a -> a.quantity(20000000_00000000L).name("tokenB").decimals(bDecimal)).getId().toString();
+                    tokenA = firstCaller.issues(a -> a.quantity(Long.MAX_VALUE).name("tokenA").decimals(aDecimal)).getId().toString();
+                    tokenB = firstCaller.issues(a -> a.quantity(Long.MAX_VALUE).name("tokenB").decimals(bDecimal)).getId().toString();
                 },
                 () -> {
                     secondCaller = new Account(1000_00000000L);
@@ -124,6 +126,7 @@ class SwopfiTest {
         );
     }
 
+    @Disabled
     @ParameterizedTest(name = "firstCaller exchanges {1} tokenA")
     @MethodSource("aExchangerProvider")
     void b_canExchangeA(Account exchanger, int exchTokenAmount) {
@@ -176,6 +179,7 @@ class SwopfiTest {
         );
     }
 
+    @Disabled
     @ParameterizedTest(name = "firstCaller exchanges {1} tokenB")
     @MethodSource("bExchangerProvider")
     void c_canExchangeB(Account exchanger, int exchTokenAmount) {
@@ -225,6 +229,7 @@ class SwopfiTest {
                 Arguments.of(thirdExchanger));
     }
 
+    @Disabled
     @ParameterizedTest(name = "secondCaller replenish A/B by twice")
     @MethodSource("replenishByTwiceProvider")
     void c_secondCallerReplenishByTwice(Account exchanger) {
@@ -269,6 +274,7 @@ class SwopfiTest {
                 Arguments.of(thirdExchanger));
     }
 
+    @Disabled
     @ParameterizedTest(name = "secondCaller withdraw A/B by twice")
     @MethodSource("withdrawByTwiceProvider")
     void d_secondCallerWithdrawAB(Account exchanger) {
@@ -309,78 +315,79 @@ class SwopfiTest {
         );
     }
 
-    @Disabled
-    @Test
-    void f_canReplenishAB() {
-        long amountTokenABefore = firstExchanger.dataInt("A_asset_balance");
-        long amountTokenBBefore = firstExchanger.dataInt("B_asset_balance");
-        long bReplenishAmount = 10000000000L;
-        long shareTokenSupplyBefore = firstExchanger.dataInt("share_asset_supply");
-        String shareTokenId = Base58.encode(firstExchanger.dataBin("share_asset_id"));
-        long shareTokenAmountBefore = firstCaller.balance(shareTokenId);
+    Stream<Arguments> replenishProvider() {
+        return Stream.of(
+                Arguments.of(firstExchanger, 1L, 1), Arguments.of(firstExchanger, 100000L, 5), Arguments.of(firstExchanger, 26189L, 10),
+                Arguments.of(secondExchanger, 50000L, 5), Arguments.of(secondExchanger, 100L, 10), Arguments.of(secondExchanger, 457382L, 20),
+                Arguments.of(thirdExchanger, 35L, 3), Arguments.of(thirdExchanger, 1000L, 4), Arguments.of(thirdExchanger, 10004L, 7));
+    }
+
+    @ParameterizedTest(name = "secondCaller replenish A/B, slippage {2}")
+    @MethodSource("replenishProvider")
+    void f_canReplenishAB(Account exchanger, long replenishAmountB, int slippageTolerance) {
+        long balanceA = exchanger.dataInt("A_asset_balance");
+        long balanceB = exchanger.dataInt("B_asset_balance");
+        long shareAssetSupply = exchanger.dataInt("share_asset_supply");
+        String shareAssetId = exchanger.dataStr("share_asset_id");
+        long callerShareBalance = firstCaller.balance(shareAssetId);
+        int contractRatioMin = (1000 * (slippageToleranceDelimiter - slippageTolerance)) / slippageToleranceDelimiter;
+        int contractRatioMax = (1000 * (slippageToleranceDelimiter + slippageTolerance)) / slippageToleranceDelimiter;
+        long pmtAmountB = replenishAmountB * (long) Math.pow(10, bDecimal);
 
         Map<String, Long> insufficientTokenRatioAmounts = new HashMap<>();
-        insufficientTokenRatioAmounts.put("aReplenishAmount", aReplenishAmount(990, bReplenishAmount, amountTokenABefore, amountTokenBBefore));
-        insufficientTokenRatioAmounts.put("bReplenishAmount", bReplenishAmount);
+        insufficientTokenRatioAmounts.put("pmtAmountA", aReplenishAmountByRatio(contractRatioMin - 1, pmtAmountB, balanceA, balanceB));
+        insufficientTokenRatioAmounts.put("pmtAmountB", pmtAmountB);
 
         NodeError error = assertThrows(NodeError.class, () ->
-                firstCaller.invokes(i -> i.dApp(firstExchanger).function("replenishment").payment(insufficientTokenRatioAmounts.get("aReplenishAmount"), tokenA).payment(insufficientTokenRatioAmounts.get("bReplenishAmount"), tokenB).fee(1_00500000L))
+                firstCaller.invokes(i -> i.dApp(exchanger).function("replenishWithTwoTokens", arg(slippageTolerance)).payment(insufficientTokenRatioAmounts.get("pmtAmountA"), tokenA).payment(insufficientTokenRatioAmounts.get("pmtAmountB"), tokenB).fee(1_00500000L))
         );
-        assertTrue(error.getMessage().contains("incorrect assets amount"));
+        assertTrue(error.getMessage().contains("incorrect assets amount: amounts must have the contract ratio"));
 
         Map<String, Long> tooBigTokenRatioAmounts = new HashMap<>();
-        tooBigTokenRatioAmounts.put("aReplenishAmount", aReplenishAmount(1010, bReplenishAmount, amountTokenABefore, amountTokenBBefore));
-        tooBigTokenRatioAmounts.put("bReplenishAmount", bReplenishAmount);
+        tooBigTokenRatioAmounts.put("pmtAmountA", aReplenishAmountByRatio(contractRatioMax + 1, pmtAmountB, balanceA, balanceB));
+        tooBigTokenRatioAmounts.put("pmtAmountB", pmtAmountB);
 
         NodeError error2 = assertThrows(NodeError.class, () ->
-                firstCaller.invokes(i -> i.dApp(firstExchanger).function("replenishment").payment(tooBigTokenRatioAmounts.get("aReplenishAmount"), tokenA).payment(tooBigTokenRatioAmounts.get("bReplenishAmount"), tokenB).fee(1_00500000L))
+                firstCaller.invokes(i -> i.dApp(exchanger).function("replenishWithTwoTokens", arg(slippageTolerance)).payment(tooBigTokenRatioAmounts.get("pmtAmountA"), tokenA).payment(tooBigTokenRatioAmounts.get("pmtAmountB"), tokenB).fee(1_00500000L))
         );
-        assertTrue(error2.getMessage().contains("incorrect assets amount"));
+        assertTrue(error2.getMessage().contains("incorrect assets amount: amounts must have the contract ratio"));
 
         Map<String, Long> replenishAmounts = new HashMap<>();
-        replenishAmounts.put("aReplenishAmount", aReplenishAmount(991, bReplenishAmount, amountTokenABefore, amountTokenBBefore));
-        replenishAmounts.put("bReplenishAmount", bReplenishAmount);
+        replenishAmounts.put("pmtAmountA", aReplenishAmountByRatio(contractRatioMin, pmtAmountB, balanceA, balanceB));
+        replenishAmounts.put("pmtAmountB", pmtAmountB);
 
-        String invokeId = firstCaller.invokes(i -> i.dApp(firstExchanger).function("replenishment").payment(replenishAmounts.get("aReplenishAmount"), tokenA).payment(replenishAmounts.get("bReplenishAmount"), tokenB).fee(1_00500000L)).getId().getBase58String();
+        String invokeId = firstCaller.invokes(i -> i.dApp(exchanger).function("replenishWithTwoTokens", arg(slippageTolerance)).payment(replenishAmounts.get("pmtAmountA"), tokenA).payment(replenishAmounts.get("pmtAmountB"), tokenB).fee(1_00500000L)).getId().getBase58String();
         node().waitForTransaction(invokeId);
 
-        long shareTokenToPay = (BigInteger.valueOf(replenishAmounts.get("aReplenishAmount")).multiply(BigInteger.valueOf(shareTokenSupplyBefore)).divide(BigInteger.valueOf(amountTokenABefore))).longValue();
+        long ratioShareTokensInA = BigInteger.valueOf(replenishAmounts.get("pmtAmountA")).multiply(BigInteger.valueOf(scaleValue8)).divide(BigInteger.valueOf(balanceA)).longValue();
+        long ratioShareTokensInB = BigInteger.valueOf(pmtAmountB).multiply(BigInteger.valueOf(scaleValue8)).divide(BigInteger.valueOf(balanceB)).longValue();
+
+        long shareTokenToPayAmount = BigInteger.valueOf(Long.min(ratioShareTokensInA, ratioShareTokensInB)).multiply(BigInteger.valueOf(shareAssetSupply)).divide(BigInteger.valueOf(scaleValue8)).longValue();
 
 
         assertAll("data and balances",
-                () -> assertThat(firstExchanger.dataInt("A_asset_balance")).isEqualTo(amountTokenABefore + replenishAmounts.get("aReplenishAmount")),
-                () -> assertThat(firstExchanger.dataInt("B_asset_balance")).isEqualTo(amountTokenBBefore + bReplenishAmount),
-                () -> assertThat(firstExchanger.dataStr("A_asset_id")).isEqualTo(tokenA),
-                () -> assertThat(firstExchanger.dataStr("B_asset_id")).isEqualTo(tokenB),
-                () -> assertThat(firstExchanger.dataBool("active")).isEqualTo(true),
-                () -> assertThat(firstExchanger.dataInt("commission")).isEqualTo(2000),
-                () -> assertThat(firstExchanger.dataInt("commission_scale_delimiter")).isEqualTo(10000),
-                () -> assertThat(firstExchanger.dataStr("version")).isEqualTo("0.0.2"),
-                () -> assertThat(firstExchanger.dataBin("share_asset_id")).isNotNull(),
-                () -> assertThat(firstExchanger.dataInt("share_asset_supply")).isEqualTo(shareTokenSupplyBefore + shareTokenToPay),
-                () -> assertThat(firstCaller.balance(shareTokenId)).isEqualTo(shareTokenAmountBefore + shareTokenToPay)
+                () -> assertThat(exchanger.dataInt("A_asset_balance")).isEqualTo(balanceA + replenishAmounts.get("pmtAmountA")),
+                () -> assertThat(exchanger.dataInt("B_asset_balance")).isEqualTo(balanceB + pmtAmountB),
+                () -> assertThat(exchanger.dataStr("A_asset_id")).isEqualTo(tokenA),
+                () -> assertThat(exchanger.dataStr("B_asset_id")).isEqualTo(tokenB),
+                () -> assertThat(exchanger.dataBool("active")).isEqualTo(true),
+                () -> assertThat(exchanger.dataInt("commission")).isEqualTo(commission),
+                () -> assertThat(exchanger.dataInt("commission_scale_delimiter")).isEqualTo(commissionScaleDelimiter),
+                () -> assertThat(exchanger.dataStr("version")).isEqualTo(version),
+                () -> assertThat(exchanger.dataStr("share_asset_id")).isNotNull(),
+                () -> assertThat(exchanger.dataInt("share_asset_supply")).isEqualTo(shareAssetSupply + shareTokenToPayAmount),
+                () -> assertThat(firstCaller.balance(shareAssetId)).isEqualTo(callerShareBalance + shareTokenToPayAmount)
 
         );
     }
 
-    private int calculateReplTokenRatio(long tokenReceiveAmountA, long tokenReceiveAmountB, long dAppTokensAmountA, long dAppTokensAmountB) {
-        BigInteger firstProd = BigInteger.valueOf(tokenReceiveAmountA).multiply(BigInteger.valueOf(1000_000_000_000L * 1000L));
-        BigInteger firstFraction = firstProd.divide(BigInteger.valueOf(dAppTokensAmountA));
-
-        BigInteger secondProd = BigInteger.valueOf(tokenReceiveAmountB).multiply(BigInteger.valueOf(1000_000_000_000L));
-        BigInteger secondFraction = secondProd.divide(BigInteger.valueOf(dAppTokensAmountB));
-
-        return firstFraction.divide(secondFraction).intValue();
-    }
-
-    private long aReplenishAmount(int tokenRatio, long bReplenishAmount, long amountTokenABefore, long amountTokenBBefore) {
-        return ((BigInteger.valueOf(tokenRatio)
-                .multiply(BigInteger.valueOf(amountTokenABefore))
-                .multiply(BigInteger.valueOf(1000000000000L))
-                .multiply(BigInteger.valueOf(amountTokenBBefore)))
+    private long aReplenishAmountByRatio(int tokenRatio, long pmtAmountB, long balanceA, long balanceB) {
+        return ((BigInteger.valueOf(balanceA)
+                .multiply(BigInteger.valueOf(1000))
+                .multiply(BigInteger.valueOf(pmtAmountB)))
                 .divide(
-                        BigInteger.valueOf(bReplenishAmount)
-                                .multiply(BigInteger.valueOf(1000000000000L * 1000L)))).longValue();
+                        BigInteger.valueOf(tokenRatio)
+                                .multiply(BigInteger.valueOf(balanceB)))).longValue();
 
     }
 

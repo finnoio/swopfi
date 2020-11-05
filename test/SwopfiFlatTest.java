@@ -29,9 +29,8 @@ public class SwopfiFlatTest {
     private Account firstExchanger, secondExchanger, thirdExchanger, firstCaller, secondCaller;
     private String tokenA;
     private String tokenB;
-    private int aDecimal = 6;
+    private int aDecimal = 8;
     private int bDecimal = 6;
-    private int wavesDecimal = 8;
     private int comission = 500;
     private int comissionGovernance = 200;
     private int comissionScaleDelimiter = 1000000;
@@ -70,7 +69,15 @@ public class SwopfiFlatTest {
         );
     }
 
-    @Test
+    Stream<Arguments> fundProvider() {
+        return Stream.of(
+                Arguments.of(firstExchanger, 1000000, 100000),
+                Arguments.of(secondExchanger, 100000, 100000),
+                Arguments.of(thirdExchanger, 212345, 3456789));
+    }
+
+    @ParameterizedTest(name = "caller inits {index} exchanger with {1} tokenA and {2} tokenB")
+    @MethodSource("fundProvider")
     void a_canFundAB() {
         node().waitForTransaction(tokenA);
         node().waitForTransaction(tokenB);
