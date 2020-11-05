@@ -6,6 +6,7 @@ import org.junit.jupiter.api.*;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
@@ -31,14 +32,14 @@ class SwopfiTest {
     private Account firstExchanger, secondExchanger, thirdExchanger, firstCaller, secondCaller;
     private String tokenA;
     private String tokenB;
-    private int aDecimal = 8;// 4ok  3ok  8ok 2shareTokenSuply diff300 1longOverflow
-    private int bDecimal = 6;// 5ok  3ok  8ok 3shareTokenSuply diff300 1longOverflow
+    private int aDecimal = 8;
+    private int bDecimal = 6;
     private int wavesDecimal = 8;
-    private int comission = 300;
-    private int commisionGovernance = 200;
+    private int comission = 3000;
+    private int commisionGovernance = 1200;
     private int comissionScaleDelimiter = 1000000;
     private String version = "1.0.0";
-    private String shareTokenIdAB;
+    private HashMap<Account, String> shareTokenIds = new HashMap<>();
     //3MP9d7iovdAZtsPeRcq97skdsQH5MPEsfgm govAddress
 
     @BeforeAll
@@ -65,57 +66,70 @@ class SwopfiTest {
         );
     }
 
-    @Test
-    void a_canFundAB() {
+    Stream<Arguments> fundProvider() {
+        return Stream.of(
+                Arguments.of(firstExchanger, 1000000, 100000),
+                Arguments.of(secondExchanger, 100000, 100000),
+                Arguments.of(thirdExchanger, 212345, 3456789));
+    }
+
+    @ParameterizedTest(name = "caller funds {index} exchanger with {1} tokenA and {2} tokenB")
+    @MethodSource("fundProvider")
+    void a_canFundAB(Account exchanger, int x, int y) {
         node().waitForTransaction(tokenA);
         node().waitForTransaction(tokenB);
 
-        long fundAmountA = 10000000000000L;
-        long fundAmountB = 1000000000000L;
+        long fundAmountA = x * (long) Math.pow(10, aDecimal);
+        long fundAmountB = y * (long) Math.pow(10, bDecimal);
 
-        int digitsInShareToken = (aDecimal + bDecimal) / 2;//316227.7660168379 * 100000.0 / 100.0
-        double a = new BigDecimal(Math.pow(fundAmountA / Math.pow(10, aDecimal), 0.5)).setScale(aDecimal, RoundingMode.HALF_DOWN).doubleValue();//.setScale(aDecimal, RoundingMode.HALF_DOWN)
-        double b = new BigDecimal(Math.pow(fundAmountB / Math.pow(10, bDecimal), 0.5)).setScale(bDecimal, RoundingMode.HALF_DOWN).doubleValue();//.setScale(bDecimal, RoundingMode.HALF_DOWN)
+        int digitsInShareToken = (aDecimal + bDecimal) / 2;
 
-
-        System.out.printf("%s * %s / %s", a, b, Math.pow(10, digitsInShareToken));
-
-        String invokeId = firstCaller.invokes(i -> i.dApp(firstExchanger).function("fund").payment(fundAmountA, tokenA).payment(fundAmountB, tokenB).fee(1_00500000L)).getId().getBase58String();
+        String invokeId = firstCaller.invokes(i -> i.dApp(exchanger).function("fund").payment(fundAmountA, tokenA).payment(fundAmountB, tokenB).fee(1_00500000L)).getId().getBase58String();
         node().waitForTransaction(invokeId);
         node().waitNBlocks(1);
 
-        shareTokenIdAB = firstExchanger.dataStr("share_token_id");
+        shareTokenIds.put(exchanger,exchanger.dataStr("share_token_id"));
+
         long shareTokenSupply = (long) (((new BigDecimal(Math.pow(fundAmountA / Math.pow(10, aDecimal), 0.5)).setScale(aDecimal, RoundingMode.HALF_DOWN).movePointRight(aDecimal).doubleValue() *
                 new BigDecimal(Math.pow(fundAmountB / Math.pow(10, bDecimal), 0.5)).setScale(bDecimal, RoundingMode.HALF_DOWN).movePointRight(bDecimal).doubleValue()) / Math.pow(10, digitsInShareToken)));
 
-                assertAll("data and balances",
-                () -> assertThat(firstExchanger.dataInt("amountTokenA")).isEqualTo(fundAmountA),
-                () -> assertThat(firstExchanger.dataInt("amountTokenB")).isEqualTo(fundAmountB),
-                () -> assertThat(firstExchanger.dataStr("assetIdTokenA")).isEqualTo(tokenA),
-                () -> assertThat(firstExchanger.dataStr("assetIdTokenB")).isEqualTo(tokenB),
-                () -> assertThat(firstExchanger.dataBool("status")).isEqualTo(true),
-                () -> assertThat(firstExchanger.dataInt("comission")).isEqualTo(comission),
-                () -> assertThat(firstExchanger.dataInt("comissionScaleDelimiter")).isEqualTo(comissionScaleDelimiter),
-                () -> assertThat(firstExchanger.dataStr("version")).isEqualTo(version),
-                () -> assertThat(firstExchanger.dataStr("share_token_id")).isNotNull(),
-                () -> assertThat(firstExchanger.dataInt("share_token_supply")).isEqualTo(shareTokenSupply),
-                () -> assertThat(firstCaller.balance(shareTokenIdAB)).isEqualTo(shareTokenSupply)
+        assertAll("data and balances",
+                () -> assertThat(exchanger.dataInt("amountTokenA")).isEqualTo(fundAmountA),
+                () -> assertThat(exchanger.dataInt("amountTokenB")).isEqualTo(fundAmountB),
+                () -> assertThat(exchanger.balance(tokenA)).isEqualTo(fundAmountA),
+                () -> assertThat(exchanger.balance(tokenB)).isEqualTo(fundAmountB),
+                () -> assertThat(exchanger.dataStr("assetIdTokenA")).isEqualTo(tokenA),
+                () -> assertThat(exchanger.dataStr("assetIdTokenB")).isEqualTo(tokenB),
+                () -> assertThat(exchanger.dataBool("status")).isEqualTo(true),
+                () -> assertThat(exchanger.dataInt("comission")).isEqualTo(comission),
+                () -> assertThat(exchanger.dataInt("comissionScaleDelimiter")).isEqualTo(comissionScaleDelimiter),
+                () -> assertThat(exchanger.dataStr("version")).isEqualTo(version),
+                () -> assertThat(exchanger.dataStr("share_token_id")).isNotNull(),
+                () -> assertThat(exchanger.dataInt("share_token_supply")).isEqualTo(shareTokenSupply),
+                () -> assertThat(firstCaller.balance(shareTokenIds.get(exchanger))).isEqualTo(shareTokenSupply)
 
         );
     }
 
-    static Stream<Arguments> amountAndCountProvider() {
-        return Stream.of(Arguments.of(100), Arguments.of(10000), Arguments.of(1000));
+    Stream<Arguments> aExchangerProvider() {
+        return Stream.of(
+                Arguments.of(firstExchanger, 100), Arguments.of(firstExchanger, 10000), Arguments.of(firstExchanger, 1899),
+                Arguments.of(secondExchanger, 100), Arguments.of(secondExchanger, 10000), Arguments.of(secondExchanger, 2856),
+                Arguments.of(thirdExchanger, 100), Arguments.of(thirdExchanger, 10000), Arguments.of(thirdExchanger, 1000)
+        );
     }
-    @ParameterizedTest(name = "firstCaller exchanges {0} tokens")
-    @MethodSource("amountAndCountProvider")
-    void b_canExchangeAB(int exchTokenAmount) {
+
+    @ParameterizedTest(name = "firstCaller exchanges {1} tokenA")
+    @MethodSource("aExchangerProvider")
+    void b_canExchangeA(Account exchanger, int exchTokenAmount) {
 
         long tokenReceiveAmount = exchTokenAmount * (long) Math.pow(10, aDecimal);
         System.out.println(tokenReceiveAmount);
-        long amountTokenA = firstExchanger.dataInt("amountTokenA");
-        long amountTokenB = firstExchanger.dataInt("amountTokenB");
-        long shareTokenSuplyBefore = firstExchanger.dataInt("share_token_supply");
+        long amountTokenA = exchanger.dataInt("amountTokenA");
+        long amountTokenB = exchanger.dataInt("amountTokenB");
+        long callerBalanceA = firstCaller.balance(tokenA);
+        long callerBalanceB = firstCaller.balance(tokenB);
+        long shareTokenSuplyBefore = exchanger.dataInt("share_token_supply");
         long tokenSendAmountWithoutFee =
                 BigInteger.valueOf(tokenReceiveAmount)
                         .multiply(BigInteger.valueOf(amountTokenB))
@@ -125,76 +139,150 @@ class SwopfiTest {
         long tokenSendAmountWithFee = (tokenSendAmountWithoutFee * (comissionScaleDelimiter - comission)) / comissionScaleDelimiter;
         long tokenSendGovernance = tokenSendAmountWithoutFee * commisionGovernance / comissionScaleDelimiter;
 
-        String invokeId = firstCaller.invokes(i -> i.dApp(firstExchanger).function("exchanger", arg(tokenSendAmountWithFee)).payment(tokenReceiveAmount, tokenA).fee(1_00500000L)).getId().getBase58String();
+        String invokeId = firstCaller.invokes(i -> i.dApp(exchanger).function("exchanger", arg(tokenSendAmountWithFee)).payment(tokenReceiveAmount, tokenA).fee(1_00500000L)).getId().getBase58String();
         node().waitForTransaction(invokeId);
 
-        for (DataEntry data : firstExchanger.data()) System.out.printf("%s: %s%n", data.getKey(), data.getValue());
+        for (DataEntry data : exchanger.data()) System.out.printf("%s: %s%n", data.getKey(), data.getValue());
 
         assertAll("data and balances",
-                () -> assertThat(firstExchanger.dataInt("amountTokenA")).isEqualTo(amountTokenA + tokenReceiveAmount),
-                () -> assertThat(firstExchanger.dataInt("amountTokenB")).isEqualTo(amountTokenB - tokenSendAmountWithFee - tokenSendGovernance),
-                () -> assertThat(firstExchanger.dataStr("assetIdTokenA")).isEqualTo(tokenA),
-                () -> assertThat(firstExchanger.dataStr("assetIdTokenB")).isEqualTo(tokenB),
-                () -> assertThat(firstExchanger.dataBool("status")).isEqualTo(true),
-                () -> assertThat(firstExchanger.dataInt("comission")).isEqualTo(comission),
-                () -> assertThat(firstExchanger.dataInt("comissionScaleDelimiter")).isEqualTo(comissionScaleDelimiter),
-                () -> assertThat(firstExchanger.dataStr("version")).isEqualTo(version),
-                () -> assertThat(firstExchanger.dataStr("share_token_id")).isEqualTo(shareTokenIdAB),
-                () -> assertThat(firstExchanger.dataInt("share_token_supply")).isEqualTo(shareTokenSuplyBefore)
+                () -> assertThat(exchanger.dataInt("amountTokenA")).isEqualTo(amountTokenA + tokenReceiveAmount),
+                () -> assertThat(exchanger.dataInt("amountTokenB")).isEqualTo(amountTokenB - tokenSendAmountWithFee - tokenSendGovernance),
+                () -> assertThat(exchanger.balance(tokenA)).isEqualTo(amountTokenA + tokenReceiveAmount),
+                () -> assertThat(exchanger.balance(tokenB)).isEqualTo(amountTokenB - tokenSendAmountWithFee - tokenSendGovernance),
+                () -> assertThat(firstCaller.balance(tokenA)).isEqualTo(callerBalanceA - tokenReceiveAmount),
+                () -> assertThat(firstCaller.balance(tokenB)).isEqualTo(callerBalanceB + tokenSendAmountWithFee),
+                () -> assertThat(exchanger.dataStr("assetIdTokenA")).isEqualTo(tokenA),
+                () -> assertThat(exchanger.dataStr("assetIdTokenB")).isEqualTo(tokenB),
+                () -> assertThat(exchanger.dataBool("status")).isEqualTo(true),
+                () -> assertThat(exchanger.dataInt("comission")).isEqualTo(comission),
+                () -> assertThat(exchanger.dataInt("comissionScaleDelimiter")).isEqualTo(comissionScaleDelimiter),
+                () -> assertThat(exchanger.dataStr("version")).isEqualTo(version),
+                () -> assertThat(exchanger.dataStr("share_token_id")).isEqualTo(shareTokenIds.get(exchanger)),
+                () -> assertThat(exchanger.dataInt("share_token_supply")).isEqualTo(shareTokenSuplyBefore)
 
         );
 
     }
 
-    @Test
-    void c_secondCallerReplenishAB() {
+    Stream<Arguments> bExchangerProvider() {
+        return Stream.of(
+                Arguments.of(firstExchanger, 100), Arguments.of(firstExchanger, 10000), Arguments.of(firstExchanger, 1899),
+                Arguments.of(secondExchanger, 100), Arguments.of(secondExchanger, 10000), Arguments.of(secondExchanger, 2856),
+                Arguments.of(thirdExchanger, 100), Arguments.of(thirdExchanger, 10000), Arguments.of(thirdExchanger, 1000)
+        );
+    }
+
+    @ParameterizedTest(name = "firstCaller exchanges {1} tokenB")
+    @MethodSource("bExchangerProvider")
+    void c_canExchangeB(Account exchanger, int exchTokenAmount) {
+
+        long tokenReceiveAmount = exchTokenAmount * (long) Math.pow(10, bDecimal);
+        System.out.println(tokenReceiveAmount);
+        long amountTokenA = exchanger.dataInt("amountTokenA");
+        long amountTokenB = exchanger.dataInt("amountTokenB");
+        long callerBalanceA = firstCaller.balance(tokenA);
+        long callerBalanceB = firstCaller.balance(tokenB);
+        long shareTokenSuplyBefore = exchanger.dataInt("share_token_supply");
+        long tokenSendAmountWithoutFee =
+                BigInteger.valueOf(tokenReceiveAmount)
+                        .multiply(BigInteger.valueOf(amountTokenA))
+                        .divide(BigInteger.valueOf(tokenReceiveAmount + amountTokenB))
+                        .longValue();
+
+        long tokenSendAmountWithFee = (tokenSendAmountWithoutFee * (comissionScaleDelimiter - comission)) / comissionScaleDelimiter;
+        long tokenSendGovernance = tokenSendAmountWithoutFee * commisionGovernance / comissionScaleDelimiter;
+
+        String invokeId = firstCaller.invokes(i -> i.dApp(exchanger).function("exchanger", arg(tokenSendAmountWithFee)).payment(tokenReceiveAmount, tokenB).fee(1_00500000L)).getId().getBase58String();
+        node().waitForTransaction(invokeId);
+
+        for (DataEntry data : exchanger.data()) System.out.printf("%s: %s%n", data.getKey(), data.getValue());
+
+        assertAll("data and balances",
+                () -> assertThat(exchanger.dataInt("amountTokenA")).isEqualTo(amountTokenA - tokenSendAmountWithFee - tokenSendGovernance),
+                () -> assertThat(exchanger.dataInt("amountTokenB")).isEqualTo(amountTokenB + tokenReceiveAmount),
+                () -> assertThat(exchanger.balance(tokenA)).isEqualTo(amountTokenA - tokenSendAmountWithFee - tokenSendGovernance),
+                () -> assertThat(exchanger.balance(tokenB)).isEqualTo(amountTokenB + tokenReceiveAmount),
+                () -> assertThat(firstCaller.balance(tokenA)).isEqualTo(callerBalanceA + tokenSendAmountWithFee),
+                () -> assertThat(firstCaller.balance(tokenB)).isEqualTo(callerBalanceB - tokenReceiveAmount),
+                () -> assertThat(exchanger.dataStr("assetIdTokenA")).isEqualTo(tokenA),
+                () -> assertThat(exchanger.dataStr("assetIdTokenB")).isEqualTo(tokenB),
+                () -> assertThat(exchanger.dataBool("status")).isEqualTo(true),
+                () -> assertThat(exchanger.dataInt("comission")).isEqualTo(comission),
+                () -> assertThat(exchanger.dataInt("comissionScaleDelimiter")).isEqualTo(comissionScaleDelimiter),
+                () -> assertThat(exchanger.dataStr("version")).isEqualTo(version),
+                () -> assertThat(exchanger.dataStr("share_token_id")).isEqualTo(shareTokenIds.get(exchanger)),
+                () -> assertThat(exchanger.dataInt("share_token_supply")).isEqualTo(shareTokenSuplyBefore)
+
+        );
+
+    }
+
+    Stream<Arguments> replenishByTwiceProvider() {
+        return Stream.of(
+                Arguments.of(firstExchanger),
+                Arguments.of(secondExchanger),
+                Arguments.of(thirdExchanger));
+    }
+
+    @ParameterizedTest(name = "secondCaller replenish A/B by twice")
+    @MethodSource("replenishByTwiceProvider")
+    void c_secondCallerReplenishByTwice(Account exchanger) {
+        long amountTokenABefore = exchanger.dataInt("amountTokenA");
+        long amountTokenBBefore = exchanger.dataInt("amountTokenB");
         secondCaller = new Account(1000_00000000L);
         String transfer1 = firstCaller.transfers(t -> t
                 .to(secondCaller)
-                .amount(10000000_00000000L)
+                .amount(amountTokenABefore)
                 .asset(tokenA)).getId().getBase58String();
         String transfer2 = firstCaller.transfers(t -> t
                 .to(secondCaller)
-                .amount(10000000_00000000L)
+                .amount(amountTokenBBefore)
                 .asset(tokenB)).getId().getBase58String();
         node().waitForTransaction(transfer1);
         node().waitForTransaction(transfer2);
-        long amountTokenABefore = firstExchanger.dataInt("amountTokenA");
-        long amountTokenBBefore = firstExchanger.dataInt("amountTokenB");
-        long shareTokenSupplyBefore = firstExchanger.dataInt("share_token_supply");
-//        long shareTokenAmountBefore = secondCaller.balance(shareTokenId);
+        long shareTokenSupplyBefore = exchanger.dataInt("share_token_supply");
 
-        String invokeId = secondCaller.invokes(i -> i.dApp(firstExchanger).function("replenishment").payment(amountTokenABefore, tokenA).payment(amountTokenBBefore, tokenB).fee(1_00500000L)).getId().getBase58String();
+        String invokeId = secondCaller.invokes(i -> i.dApp(exchanger).function("replenishmentWithTwoToken", arg(0)).payment(amountTokenABefore, tokenA).payment(amountTokenBBefore, tokenB).fee(1_00500000L)).getId().getBase58String();
         node().waitForTransaction(invokeId);
 
         long shareTokenToPay = (BigInteger.valueOf(amountTokenABefore).multiply(BigInteger.valueOf(shareTokenSupplyBefore)).divide(BigInteger.valueOf(amountTokenABefore))).longValue();
 
-
         assertAll("data and balances",
-                () -> assertThat(firstExchanger.dataInt("amountTokenA")).isEqualTo(amountTokenABefore + amountTokenABefore),
-                () -> assertThat(firstExchanger.dataInt("amountTokenB")).isEqualTo(amountTokenBBefore + amountTokenBBefore),
-                () -> assertThat(firstExchanger.dataStr("assetIdTokenA")).isEqualTo(tokenA),
-                () -> assertThat(firstExchanger.dataStr("assetIdTokenB")).isEqualTo(tokenB),
-                () -> assertThat(firstExchanger.dataBool("status")).isEqualTo(true),
-                () -> assertThat(firstExchanger.dataInt("comission")).isEqualTo(comission),
-                () -> assertThat(firstExchanger.dataInt("comissionScaleDelimiter")).isEqualTo(comissionScaleDelimiter),
-                () -> assertThat(firstExchanger.dataStr("version")).isEqualTo(version),
-                () -> assertThat(firstExchanger.dataStr("share_token_id")).isEqualTo(shareTokenIdAB),
-                () -> assertThat(firstExchanger.dataInt("share_token_supply")).isEqualTo(shareTokenSupplyBefore + shareTokenToPay),
-                () -> assertThat(secondCaller.balance(shareTokenIdAB)).isEqualTo(shareTokenToPay)
+                () -> assertThat(exchanger.dataInt("amountTokenA")).isEqualTo(amountTokenABefore + amountTokenABefore),
+                () -> assertThat(exchanger.dataInt("amountTokenB")).isEqualTo(amountTokenBBefore + amountTokenBBefore),
+                () -> assertThat(exchanger.dataStr("assetIdTokenA")).isEqualTo(tokenA),
+                () -> assertThat(exchanger.dataStr("assetIdTokenB")).isEqualTo(tokenB),
+                () -> assertThat(exchanger.dataBool("status")).isEqualTo(true),
+                () -> assertThat(exchanger.dataInt("comission")).isEqualTo(comission),
+                () -> assertThat(exchanger.dataInt("comissionScaleDelimiter")).isEqualTo(comissionScaleDelimiter),
+                () -> assertThat(exchanger.dataStr("version")).isEqualTo(version),
+                () -> assertThat(exchanger.dataStr("share_token_id")).isEqualTo(shareTokenIds.get(exchanger)),
+                () -> assertThat(exchanger.dataInt("share_token_supply")).isEqualTo(shareTokenSupplyBefore + shareTokenToPay),
+                () -> assertThat(secondCaller.balance(shareTokenIds.get(exchanger))).isEqualTo(shareTokenToPay)
 
         );
+
+        System.out.println("caller balance share of 1 exchanger" + secondCaller.balance(shareTokenIds.get(firstExchanger)));
+        System.out.println("caller balance share of 2 exchanger" + secondCaller.balance(shareTokenIds.get(secondExchanger)));
+        System.out.println("caller balance share of 3 exchanger" + secondCaller.balance(shareTokenIds.get(thirdExchanger)));
     }
 
-//    @Disabled
-    @Test
-    void d_secondCallerWithdrawAB() {
-        long dAppTokensAmountA = firstExchanger.balance(tokenA);
-        long dAppTokensAmountB = firstExchanger.balance(tokenB);
+    Stream<Arguments> withdrawByTwiceProvider() {
+        return Stream.of(
+                Arguments.of(firstExchanger),
+                Arguments.of(secondExchanger),
+                Arguments.of(thirdExchanger));
+    }
+
+    @ParameterizedTest(name = "secondCaller withdraw A/B by twice")
+    @MethodSource("withdrawByTwiceProvider")
+    void d_secondCallerWithdrawAB(Account exchanger) {
+        long dAppTokensAmountA = exchanger.balance(tokenA);
+        long dAppTokensAmountB = exchanger.balance(tokenB);
         long secondCallerAmountA = secondCaller.balance(tokenA);
         long secondCallerAmountB = secondCaller.balance(tokenB);
-        long shareTokenSupply = firstExchanger.dataInt("share_token_supply");
-        long secondCallerShareBalance = secondCaller.balance(shareTokenIdAB);
+        long shareTokenSupply = exchanger.dataInt("share_token_supply");
+        long secondCallerShareBalance = secondCaller.balance(shareTokenIds.get(exchanger));
         long tokensToPayA =
                 BigDecimal.valueOf(secondCallerShareBalance)
                         .multiply(BigDecimal.valueOf(dAppTokensAmountA))
@@ -205,100 +293,32 @@ class SwopfiTest {
                         .multiply(BigDecimal.valueOf(dAppTokensAmountB))
                         .divide(BigDecimal.valueOf(shareTokenSupply), 8, RoundingMode.HALF_DOWN).longValue();
 
-        System.out.println("tokensToPayB: " + tokensToPayB);
-        System.out.println("dAppTokensAmountB: " + dAppTokensAmountB);
+        System.out.println("secondCallerShareBalance: " + secondCallerShareBalance);
+        System.out.println("shareId: " + shareTokenIds.get(exchanger));
         System.out.println("secondCallerAmountB: " + secondCallerAmountB);
         System.out.println("tokensToPayA: " + tokensToPayA);
         System.out.println("dAppTokensAmountA: " + dAppTokensAmountA);
         System.out.println("secondCallerAmountA: " + secondCallerAmountA);
 
-        String invokeId = secondCaller.invokes(i -> i.dApp(firstExchanger).function("withdraw").payment(secondCallerShareBalance, shareTokenIdAB).fee(1_00500000L)).getId().getBase58String();
+        String invokeId = secondCaller.invokes(i -> i.dApp(exchanger).function("withdraw").payment(secondCallerShareBalance, shareTokenIds.get(exchanger)).fee(1_00500000L)).getId().getBase58String();
         node().waitForTransaction(invokeId);
-        node().waitNBlocks(2);
-        //900099908452
-        //
 
         assertAll("data and balances",
-                () -> assertThat(firstExchanger.dataInt("amountTokenA")).isEqualTo(dAppTokensAmountA - tokensToPayA),
-                () -> assertThat(firstExchanger.dataInt("amountTokenB")).isEqualTo(dAppTokensAmountB - tokensToPayB),
-                () -> assertThat(firstExchanger.dataStr("assetIdTokenA")).isEqualTo(tokenA),
-                () -> assertThat(firstExchanger.dataStr("assetIdTokenB")).isEqualTo(tokenB),
-                () -> assertThat(firstExchanger.dataBool("status")).isEqualTo(true),
-                () -> assertThat(firstExchanger.dataInt("comission")).isEqualTo(comission),
-                () -> assertThat(firstExchanger.dataInt("comissionScaleDelimiter")).isEqualTo(comissionScaleDelimiter),
-                () -> assertThat(firstExchanger.dataStr("version")).isEqualTo(version),
-                () -> assertThat(firstExchanger.dataStr("share_token_id")).isEqualTo(shareTokenIdAB),
-                () -> assertThat(firstExchanger.dataInt("share_token_supply")).isEqualTo(shareTokenSupply - secondCallerShareBalance),
+                () -> assertThat(exchanger.dataInt("amountTokenA")).isEqualTo(dAppTokensAmountA - tokensToPayA),
+                () -> assertThat(exchanger.dataInt("amountTokenB")).isEqualTo(dAppTokensAmountB - tokensToPayB),
+                () -> assertThat(exchanger.dataStr("assetIdTokenA")).isEqualTo(tokenA),
+                () -> assertThat(exchanger.dataStr("assetIdTokenB")).isEqualTo(tokenB),
+                () -> assertThat(exchanger.dataBool("status")).isEqualTo(true),
+                () -> assertThat(exchanger.dataInt("comission")).isEqualTo(comission),
+                () -> assertThat(exchanger.dataInt("comissionScaleDelimiter")).isEqualTo(comissionScaleDelimiter),
+                () -> assertThat(exchanger.dataStr("version")).isEqualTo(version),
+                () -> assertThat(exchanger.dataStr("share_token_id")).isEqualTo(shareTokenIds.get(exchanger)),
+                () -> assertThat(exchanger.dataInt("share_token_supply")).isEqualTo(shareTokenSupply - secondCallerShareBalance),
+                () -> assertThat(secondCaller.balance(shareTokenIds.get(exchanger))).isEqualTo(0),
                 () -> assertThat(secondCaller.balance(tokenA)).isEqualTo(secondCallerAmountA + tokensToPayA),
                 () -> assertThat(secondCaller.balance(tokenB)).isEqualTo(secondCallerAmountB + tokensToPayB)
 
         );
-    }
-
-    @Disabled
-    @Test
-    void b_canFundAWaves() {
-        long fundAmount = 10000000000L;
-        String invokeId = firstCaller.invokes(i -> i.dApp(secondExchanger).function("fund").payment(fundAmount, tokenA).wavesPayment(fundAmount).fee(1_00500000L)).getId().getBase58String();
-        node().waitForTransaction(invokeId);
-
-        assertAll("data and balances",
-                () -> assertThat(secondExchanger.dataInt("amountTokenA")).isEqualTo(fundAmount),
-                () -> assertThat(secondExchanger.dataInt("amountTokenB")).isEqualTo(fundAmount),
-                () -> assertThat(secondExchanger.dataStr("assetIdTokenA")).isEqualTo(tokenA),
-                () -> assertThat(secondExchanger.dataStr("assetIdTokenB")).isEqualTo("WAVES"),
-                () -> assertThat(secondExchanger.dataBool("status")).isEqualTo(true),
-                () -> assertThat(secondExchanger.dataInt("comission")).isEqualTo(comission),
-                () -> assertThat(secondExchanger.dataInt("comissionScaleDelimiter")).isEqualTo(comissionScaleDelimiter),
-                () -> assertThat(secondExchanger.dataStr("version")).isEqualTo("0.0.2"),
-                () -> assertThat(secondExchanger.dataBin("share_token_id")).isNotNull(),
-                () -> assertThat(secondExchanger.dataInt("share_token_supply")).isEqualTo(
-                        //pow(tokenReceiveAmountA,digitTokenA,5,1,4,HALFDOWN)*pow(tokenReceiveAmountB,digitTokenB,5,1,4,HALFDOWN)
-                        (long) ((new BigDecimal(Math.pow(fundAmount / Math.pow(10, aDecimal), 0.5)).setScale(8, RoundingMode.HALF_DOWN).doubleValue() *
-                                new BigDecimal(Math.pow(fundAmount / Math.pow(10, wavesDecimal), 0.5)).setScale(8, RoundingMode.HALF_DOWN).doubleValue()) * 100000000L)
-                )
-
-        );
-    }
-
-    @Disabled
-    @Test
-    void c_canFundWavesB() {
-        aDecimal = 8;
-        long fundAmount = 1000000000L;
-        String invokeId = firstCaller.invokes(i -> i.dApp(thirdExchanger).function("fund").wavesPayment(fundAmount).payment(fundAmount, tokenB).fee(1_00500000L)).getId().getBase58String();
-        node().waitForTransaction(invokeId);
-
-        assertAll("data and balances",
-                () -> assertThat(thirdExchanger.dataInt("amountTokenA")).isEqualTo(fundAmount),
-                () -> assertThat(thirdExchanger.dataInt("amountTokenB")).isEqualTo(fundAmount),
-                () -> assertThat(thirdExchanger.dataStr("assetIdTokenA")).isEqualTo("WAVES"),
-                () -> assertThat(thirdExchanger.dataStr("assetIdTokenB")).isEqualTo(tokenB),
-                () -> assertThat(thirdExchanger.dataBool("status")).isEqualTo(true),
-                () -> assertThat(thirdExchanger.dataInt("comission")).isEqualTo(2000),
-                () -> assertThat(thirdExchanger.dataInt("comissionScaleDelimiter")).isEqualTo(10000),
-                () -> assertThat(thirdExchanger.dataStr("version")).isEqualTo("0.0.2"),
-                () -> assertThat(thirdExchanger.dataBin("share_token_id")).isNotNull(),
-                () -> assertThat(thirdExchanger.dataInt("share_token_supply")).isEqualTo(
-                        //pow(tokenReceiveAmountA,digitTokenA,5,1,4,HALFDOWN)*pow(tokenReceiveAmountB,digitTokenB,5,1,4,HALFDOWN)
-                        (long) ((new BigDecimal(Math.pow(fundAmount / Math.pow(10, wavesDecimal), 0.5)).setScale(8, RoundingMode.HALF_DOWN).doubleValue() *
-                                new BigDecimal(Math.pow(fundAmount / Math.pow(10, bDecimal), 0.5)).setScale(8, RoundingMode.HALF_DOWN).doubleValue()) * 100000000L)
-                )
-
-        );
-    }
-
-    @Disabled
-    @Test
-    void e_minTokenReceiveFail() {
-        long exchAmount = 10000000000L;
-        long minTokenReceive = 10000000000L;
-
-        NodeError error = assertThrows(NodeError.class, () ->
-                firstCaller.invokes(i -> i.dApp(firstExchanger).function("exchanger", arg(minTokenReceive)).payment(exchAmount, tokenA).fee(1_00500000L))
-        );
-
-        assertTrue(error.getMessage().contains("Price has changed dramaticaly. Receiving token amount don't satisfy specified price level"));
     }
 
     @Disabled
@@ -354,114 +374,6 @@ class SwopfiTest {
 
         );
     }
-
-    @Disabled
-    @Test
-    void g_canReplenishAWaves() {
-        long replenishAmount = 10000000000L;
-        long amountTokenABefore = firstExchanger.dataInt("amountTokenA");
-        System.out.println(amountTokenABefore);
-        long amountTokenBBefore = firstExchanger.dataInt("amountTokenB");
-        System.out.println(amountTokenBBefore);
-        long shareTokenSupplyBefore = firstExchanger.dataInt("share_token_supply");
-        String shareTokenId = Base58.encode(firstExchanger.dataBin("share_token_id"));
-
-        Map<String, Long> insufficientTokenRatio = new HashMap<>();
-        insufficientTokenRatio.put("aReplenishAmount", 9900000000L);//tokenRatio = 990
-        insufficientTokenRatio.put("wReplenishAmount", 10000000000L);
-
-        NodeError error = assertThrows(NodeError.class, () ->
-                firstCaller.invokes(i -> i.dApp(firstExchanger).function("replenishment").payment(insufficientTokenRatio.get("aReplenishAmount"), tokenA).wavesPayment(insufficientTokenRatio.get("wReplenishAmount")).fee(1_00500000L))
-        );
-        assertTrue(error.getMessage().contains("incorrect assets amount"));
-
-        Map<String, Long> tooBigTokenRatio = new HashMap<>();
-        tooBigTokenRatio.put("aReplenishAmount", 10100000000L);//tokenRatio = 1010
-        tooBigTokenRatio.put("wReplenishAmount", 10000000000L);
-
-        NodeError error2 = assertThrows(NodeError.class, () ->
-                firstCaller.invokes(i -> i.dApp(firstExchanger).function("replenishment").payment(tooBigTokenRatio.get("aReplenishAmount"), tokenA).wavesPayment(tooBigTokenRatio.get("bReplenishAmount")).fee(1_00500000L))
-        );
-        assertTrue(error2.getMessage().contains("incorrect assets amount"));
-
-        long aReplenishAmount = 992000000L;
-        long bReplenishAmount = 1000000000L;
-
-        String invokeId = firstCaller.invokes(i -> i.dApp(firstExchanger).function("replenishment").payment(aReplenishAmount, tokenA).payment(bReplenishAmount, tokenB).fee(1_00500000L)).getId().getBase58String();
-        node().waitForTransaction(invokeId);
-
-        long shareTokenToPay = (BigInteger.valueOf(aReplenishAmount).multiply(BigInteger.valueOf(shareTokenSupplyBefore)).divide(BigInteger.valueOf(amountTokenABefore))).longValue();
-
-
-        assertAll("data and balances",
-                () -> assertThat(firstExchanger.dataInt("amountTokenA")).isEqualTo(amountTokenABefore + aReplenishAmount),
-                () -> assertThat(firstExchanger.dataInt("amountTokenB")).isEqualTo(amountTokenBBefore + bReplenishAmount),
-                () -> assertThat(firstExchanger.dataStr("assetIdTokenA")).isEqualTo(tokenA),
-                () -> assertThat(firstExchanger.dataStr("assetIdTokenB")).isEqualTo(tokenB),
-                () -> assertThat(firstExchanger.dataBool("status")).isEqualTo(true),
-                () -> assertThat(firstExchanger.dataInt("comission")).isEqualTo(2000),
-                () -> assertThat(firstExchanger.dataInt("comissionScaleDelimiter")).isEqualTo(10000),
-                () -> assertThat(firstExchanger.dataStr("version")).isEqualTo("0.0.2"),
-                () -> assertThat(firstExchanger.dataBin("share_token_id")).isNotNull(),
-                () -> assertThat(firstExchanger.dataInt("share_token_supply")).isEqualTo(shareTokenSupplyBefore + shareTokenToPay),
-                () -> assertThat(firstCaller.balance(shareTokenId)).isEqualTo(shareTokenToPay)
-
-        );
-//        String invokeId  = firstCaller.invokes(i -> i.dApp(secondExchanger).function("fund").payment(fundAmount,tokenA).wavesPayment(fundAmount).fee(1_00500000L)).getId().getBase58String();
-//        node().waitForTransaction(invokeId);
-//
-//        assertAll("data and balances",
-//                () -> assertThat(secondExchanger.dataInt("amountTokenA")).isEqualTo(fundAmount),
-//                () -> assertThat(secondExchanger.dataInt("amountTokenB")).isEqualTo(ReplenishAmount),
-//                () -> assertThat(secondExchanger.dataStr("assetIdTokenA")).isEqualTo(tokenA),
-//                () -> assertThat(secondExchanger.dataStr("assetIdTokenB")).isEqualTo("WAVES"),
-//                () -> assertThat(secondExchanger.dataInt("exchange_count")).isEqualTo(0),
-//                () -> assertThat(secondExchanger.dataBool("status")).isEqualTo(true),
-//                () -> assertThat(secondExchanger.dataInt("comission")).isEqualTo(2000),
-//                () -> assertThat(secondExchanger.dataInt("comissionScaleDelimiter")).isEqualTo(10000),
-//                () -> assertThat(secondExchanger.dataStr("version")).isEqualTo("0.0.2"),
-//                () -> assertThat(secondExchanger.dataBin("share_token_id")).isNotNull(),
-//                () -> assertThat(secondExchanger.dataInt("share_token_supply")).isEqualTo(
-//                        //pow(tokenReceiveAmountA,digitTokenA,5,1,4,HALFDOWN)*pow(tokenReceiveAmountB,digitTokenB,5,1,4,HALFDOWN)
-//                        (long)((new BigDecimal(Math.pow(ReplenishAmount / Math.pow(10, aDecimal), 0.5)).setScale(8, RoundingMode.HALF_DOWN).doubleValue() *
-//                                new BigDecimal(Math.pow(ReplenishAmount / Math.pow(10, wavesDecimal), 0.5)).setScale(8, RoundingMode.HALF_DOWN).doubleValue()) * 100000000L)
-//                )
-//
-//        );
-    }
-
-    @Disabled
-    @Test
-    void h_canReplenishWavesB() {
-        aDecimal = 8;
-        long fundAmount = 1000000000L;
-        String invokeId = firstCaller.invokes(i -> i.dApp(thirdExchanger).function("fund").wavesPayment(fundAmount).payment(fundAmount, tokenB).fee(1_00500000L)).getId().getBase58String();
-        node().waitForTransaction(invokeId);
-
-        assertAll("data and balances",
-                () -> assertThat(thirdExchanger.dataInt("amountTokenA")).isEqualTo(fundAmount),
-                () -> assertThat(thirdExchanger.dataInt("amountTokenB")).isEqualTo(fundAmount),
-                () -> assertThat(thirdExchanger.dataStr("assetIdTokenA")).isEqualTo("WAVES"),
-                () -> assertThat(thirdExchanger.dataStr("assetIdTokenB")).isEqualTo(tokenB),
-                () -> assertThat(thirdExchanger.dataBool("status")).isEqualTo(true),
-                () -> assertThat(thirdExchanger.dataInt("comission")).isEqualTo(2000),
-                () -> assertThat(thirdExchanger.dataInt("comissionScaleDelimiter")).isEqualTo(10000),
-                () -> assertThat(thirdExchanger.dataStr("version")).isEqualTo("0.0.2"),
-                () -> assertThat(thirdExchanger.dataBin("share_token_id")).isNotNull(),
-                () -> assertThat(thirdExchanger.dataInt("share_token_supply")).isEqualTo(
-                        //pow(tokenReceiveAmountA,digitTokenA,5,1,4,HALFDOWN)*pow(tokenReceiveAmountB,digitTokenB,5,1,4,HALFDOWN)
-                        (long) ((new BigDecimal(Math.pow(fundAmount / Math.pow(10, wavesDecimal), 0.5)).setScale(8, RoundingMode.HALF_DOWN).doubleValue() *
-                                new BigDecimal(Math.pow(fundAmount / Math.pow(10, bDecimal), 0.5)).setScale(8, RoundingMode.HALF_DOWN).doubleValue()) * 100000000L)
-                )
-
-        );
-    }
-
-//    private long calculateReplShareTokenToPay() {
-//        BigInteger firstProd = BigInteger.valueOf(tokenReceiveAmountA).multiply(BigInteger.valueOf(1000_000_000_000L * 1000L));
-//
-//        return firstProd.divide(BigInteger.valueOf(dAppTokensAmountA));
-//    }
 
     private int calculateReplTokenRatio(long tokenReceiveAmountA, long tokenReceiveAmountB, long dAppTokensAmountA, long dAppTokensAmountB) {
         BigInteger firstProd = BigInteger.valueOf(tokenReceiveAmountA).multiply(BigInteger.valueOf(1000_000_000_000L * 1000L));
