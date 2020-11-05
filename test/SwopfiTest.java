@@ -81,10 +81,6 @@ class SwopfiTest {
     @ParameterizedTest(name = "caller inits {index} exchanger with {1} tokenA and {2} tokenB")
     @MethodSource("fundProvider")
     void a_canFundAB(Account exchanger, int x, int y) {
-        System.out.println(firstExchanger.address());
-        System.out.println(secondExchanger.address());
-        System.out.println(thirdExchanger.address());
-        System.out.println(firstCaller.address());
         node().waitForTransaction(tokenA);
         node().waitForTransaction(tokenB);
 
@@ -133,7 +129,6 @@ class SwopfiTest {
     void b_canExchangeA(Account exchanger, int exchTokenAmount) {
 
         long tokenReceiveAmount = exchTokenAmount * (long) Math.pow(10, aDecimal);
-        System.out.println(tokenReceiveAmount);
         long amountTokenA = exchanger.dataInt("A_asset_balance");
         long amountTokenB = exchanger.dataInt("B_asset_balance");
         long callerBalanceA = firstCaller.balance(tokenA);
@@ -143,14 +138,10 @@ class SwopfiTest {
                 BigInteger.valueOf(tokenReceiveAmount)
                         .multiply(BigInteger.valueOf(amountTokenB))
                         .divide(BigInteger.valueOf(tokenReceiveAmount + amountTokenA));
-//                        .longValue();
 
 
         long tokenSendAmountWithFee = tokenSendAmountWithoutFee.multiply(BigInteger.valueOf(commissionScaleDelimiter - commission)).divide(BigInteger.valueOf(commissionScaleDelimiter)).longValue();
         long tokenSendGovernance = tokenSendAmountWithoutFee.longValue() * commisionGovernance / commissionScaleDelimiter;
-
-//        long tokenSendAmountWithFee = (tokenSendAmountWithoutFee * (commissionScaleDelimiter - commission)) / commissionScaleDelimiter;
-//        long tokenSendGovernance = tokenSendAmountWithoutFee * commisionGovernance / commissionScaleDelimiter;
 
         String invokeId = firstCaller.invokes(i -> i.dApp(exchanger).function("exchange", arg(tokenSendAmountWithFee)).payment(tokenReceiveAmount, tokenA).fee(1_00500000L)).getId().getBase58String();
         node().waitForTransaction(invokeId);
@@ -190,7 +181,6 @@ class SwopfiTest {
     void c_canExchangeB(Account exchanger, int exchTokenAmount) {
 
         long tokenReceiveAmount = exchTokenAmount * (long) Math.pow(10, bDecimal);
-        System.out.println(tokenReceiveAmount);
         long amountTokenA = exchanger.dataInt("A_asset_balance");
         long amountTokenB = exchanger.dataInt("B_asset_balance");
         long callerBalanceA = firstCaller.balance(tokenA);
@@ -203,9 +193,6 @@ class SwopfiTest {
 
         long tokenSendAmountWithFee = tokenSendAmountWithoutFee.multiply(BigInteger.valueOf(commissionScaleDelimiter - commission)).divide(BigInteger.valueOf(commissionScaleDelimiter)).longValue();
         long tokenSendGovernance = tokenSendAmountWithoutFee.longValue() * commisionGovernance / commissionScaleDelimiter;
-        System.out.println("tokenSendAmountWithoutFee: " + tokenSendAmountWithoutFee);
-        System.out.println("tokenSendAmountWithFee: " + tokenSendAmountWithFee);
-        System.out.println("tokenSendGovernance: " + tokenSendGovernance);
 
         String invokeId = firstCaller.invokes(i -> i.dApp(exchanger).function("exchange", arg(tokenSendAmountWithFee)).payment(tokenReceiveAmount, tokenB).fee(1_00500000L)).getId().getBase58String();
         node().waitForTransaction(invokeId);
@@ -253,10 +240,7 @@ class SwopfiTest {
                 .asset(tokenB)).getId().getBase58String();
         node().waitForTransaction(transfer1);
         node().waitForTransaction(transfer2);
-        System.out.println("secondCaller: " + secondCaller.address());
         long shareTokenSupplyBefore = exchanger.dataInt("share_asset_supply");
-
-        System.out.println("exchanger: " + exchanger.address());
         String invokeId = secondCaller.invokes(i -> i.dApp(exchanger).function("replenishWithTwoTokens", arg(0)).payment(amountTokenABefore, tokenA).payment(amountTokenBBefore, tokenB).fee(1_00500000L)).getId().getBase58String();
         node().waitForTransaction(invokeId);
 
@@ -276,10 +260,6 @@ class SwopfiTest {
                 () -> assertThat(secondCaller.balance(shareTokenIds.get(exchanger))).isEqualTo(shareTokenToPay)
 
         );
-
-        System.out.println("caller balance share of 1 exchanger" + secondCaller.balance(shareTokenIds.get(firstExchanger)));
-        System.out.println("caller balance share of 2 exchanger" + secondCaller.balance(shareTokenIds.get(secondExchanger)));
-        System.out.println("caller balance share of 3 exchanger" + secondCaller.balance(shareTokenIds.get(thirdExchanger)));
     }
 
     Stream<Arguments> withdrawByTwiceProvider() {
@@ -308,14 +288,6 @@ class SwopfiTest {
                         .multiply(BigDecimal.valueOf(dAppTokensAmountB))
                         .divide(BigDecimal.valueOf(shareTokenSupply), 8, RoundingMode.HALF_DOWN).longValue();
 
-        System.out.println("secondCallerShareBalance: " + secondCallerShareBalance);
-        System.out.println("shareId: " + shareTokenIds.get(exchanger));
-        System.out.println("secondCallerAmountB: " + secondCallerAmountB);
-        System.out.println("tokensToPayA: " + tokensToPayA);
-        System.out.println("dAppTokensAmountA: " + dAppTokensAmountA);
-        System.out.println("secondCallerAmountA: " + secondCallerAmountA);
-
-        System.out.println("exchanger: " + exchanger.address());
         String invokeId = secondCaller.invokes(i -> i.dApp(exchanger).function("withdraw").payment(secondCallerShareBalance, shareTokenIds.get(exchanger)).fee(1_00500000L)).getId().getBase58String();
         node().waitForTransaction(invokeId);
 
