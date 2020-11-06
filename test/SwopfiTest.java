@@ -396,7 +396,7 @@ class SwopfiTest {
 
         NodeError error = assertThrows(NodeError.class, () ->
                 firstCaller.invokes(i -> i.dApp(firstExchanger).function("shutdown").fee(900000L)));
-        assertTrue(error.getMessage().contains("only adminAddress can call this function"));
+        assertTrue(error.getMessage().contains("Only admin can call this function"));
 
     }
 
