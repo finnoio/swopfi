@@ -46,9 +46,9 @@ class SwopfiTest {
     private Account secondCaller = new Account(1000_00000000L);
     private String dAppScript = fromFile("dApps/exchanger.ride")
             .replace("${governanceAddress}", governanceAddress)
-            .replace("${adminPubKey1}",Base58.encode(secondCaller.publicKey()))
-            .replace("${adminPubKey2}",Base58.encode(secondCaller.publicKey()))
-            .replace("${adminPubKey3}",Base58.encode(secondCaller.publicKey()));
+            .replace("${adminPubKey1}", Base58.encode(secondCaller.publicKey()))
+            .replace("${adminPubKey2}", Base58.encode(secondCaller.publicKey()))
+            .replace("${adminPubKey3}", Base58.encode(secondCaller.publicKey()));
 
     @BeforeAll
     void before() {
@@ -70,12 +70,6 @@ class SwopfiTest {
                     tokenA = firstCaller.issues(a -> a.quantity(Long.MAX_VALUE).name("tokenA").decimals(aDecimal)).getId().toString();
                     tokenB = firstCaller.issues(a -> a.quantity(Long.MAX_VALUE).name("tokenB").decimals(bDecimal)).getId().toString();
                 }
-//                ,
-//                () -> {
-//                    secondCaller = new Account(1000_00000000L);
-//                }
-
-
         );
     }
 
@@ -101,7 +95,7 @@ class SwopfiTest {
         node().waitForTransaction(invokeId);
         node().waitNBlocks(1);
 
-        shareTokenIds.put(exchanger,exchanger.dataStr("share_asset_id"));
+        shareTokenIds.put(exchanger, exchanger.dataStr("share_asset_id"));
 
         long shareTokenSupply = (long) (((new BigDecimal(Math.pow(fundAmountA / Math.pow(10, aDecimal), 0.5)).setScale(aDecimal, RoundingMode.HALF_DOWN).movePointRight(aDecimal).doubleValue() *
                 new BigDecimal(Math.pow(fundAmountB / Math.pow(10, bDecimal), 0.5)).setScale(bDecimal, RoundingMode.HALF_DOWN).movePointRight(bDecimal).doubleValue()) / Math.pow(10, digitsInShareToken)));
@@ -154,8 +148,6 @@ class SwopfiTest {
         String invokeId = firstCaller.invokes(i -> i.dApp(exchanger).function("exchange", arg(tokenSendAmountWithFee)).payment(tokenReceiveAmount, tokenA).fee(1_00500000L)).getId().getBase58String();
         node().waitForTransaction(invokeId);
 
-        for (DataEntry data : exchanger.data()) System.out.printf("%s: %s%n", data.getKey(), data.getValue());
-
         assertAll("data and balances",
                 () -> assertThat(exchanger.dataInt("A_asset_balance")).isEqualTo(amountTokenA + tokenReceiveAmount),
                 () -> assertThat(exchanger.dataInt("B_asset_balance")).isEqualTo(amountTokenB - tokenSendAmountWithFee - tokenSendGovernance),
@@ -204,8 +196,6 @@ class SwopfiTest {
 
         String invokeId = firstCaller.invokes(i -> i.dApp(exchanger).function("exchange", arg(tokenSendAmountWithFee)).payment(tokenReceiveAmount, tokenB).fee(1_00500000L)).getId().getBase58String();
         node().waitForTransaction(invokeId);
-
-        for (DataEntry data : exchanger.data()) System.out.printf("%s: %s%n", data.getKey(), data.getValue());
 
         assertAll("data and balances",
                 () -> assertThat(exchanger.dataInt("A_asset_balance")).isEqualTo(amountTokenA - tokenSendAmountWithFee - tokenSendGovernance),//91832344013287
@@ -347,7 +337,7 @@ class SwopfiTest {
         NodeError error = assertThrows(NodeError.class, () ->
                 firstCaller.invokes(i -> i.dApp(exchanger).function("replenishWithTwoTokens", arg(slippageTolerance)).payment(insufficientTokenRatioAmounts.get("pmtAmountA"), tokenA).payment(insufficientTokenRatioAmounts.get("pmtAmountB"), tokenB).fee(1_00500000L))
         );
-        assertTrue(error.getMessage().contains("incorrect assets amount: amounts must have the contract ratio"));
+        assertTrue(error.getMessage().contains("Incorrect assets amount: amounts must have the contract ratio"));
 
         Map<String, Long> tooBigTokenRatioAmounts = new HashMap<>();
         tooBigTokenRatioAmounts.put("pmtAmountA", aReplenishAmountByRatio(contractRatioMax + 1, pmtAmountB, balanceA, balanceB));
@@ -356,7 +346,7 @@ class SwopfiTest {
         NodeError error2 = assertThrows(NodeError.class, () ->
                 firstCaller.invokes(i -> i.dApp(exchanger).function("replenishWithTwoTokens", arg(slippageTolerance)).payment(tooBigTokenRatioAmounts.get("pmtAmountA"), tokenA).payment(tooBigTokenRatioAmounts.get("pmtAmountB"), tokenB).fee(1_00500000L))
         );
-        assertTrue(error2.getMessage().contains("incorrect assets amount: amounts must have the contract ratio"));
+        assertTrue(error2.getMessage().contains("Incorrect assets amount: amounts must have the contract ratio"));
 
         Map<String, Long> replenishAmounts = new HashMap<>();
         replenishAmounts.put("pmtAmountA", aReplenishAmountByRatio(contractRatioMin, pmtAmountB, balanceA, balanceB));
@@ -393,11 +383,23 @@ class SwopfiTest {
     void g_canShutdown() {
         secondCaller.invokes(i -> i.dApp(firstExchanger).function("shutdown").fee(900000L));
         assertThat(firstExchanger.dataBool("active")).isFalse();
+        assertThat(firstExchanger.dataStr("shutdown_cause")).isEqualTo("Paused by admin");
 
         NodeError error = assertThrows(NodeError.class, () ->
                 firstCaller.invokes(i -> i.dApp(firstExchanger).function("shutdown").fee(900000L)));
         assertTrue(error.getMessage().contains("Only admin can call this function"));
+    }
 
+    @Test
+    void h_canActivate() {
+        secondCaller.invokes(i -> i.dApp(firstExchanger).function("activate").fee(900000L));
+        assertThat(firstExchanger.dataBool("active")).isTrue();
+        NodeError error = assertThrows(NodeError.class, () -> firstExchanger.dataStr("shutdown_cause"));
+        assertTrue(error.getMessage().contains("no data for this key"));
+
+        NodeError error1 = assertThrows(NodeError.class, () ->
+                firstCaller.invokes(i -> i.dApp(firstExchanger).function("activate").fee(900000L)));
+        assertTrue(error1.getMessage().contains("Only admin can call this function"));
     }
 
 
