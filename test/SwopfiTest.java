@@ -1,7 +1,5 @@
 import com.wavesplatform.wavesj.*;
-import com.wavesplatform.wavesj.transactions.TransferTransaction;
 import im.mak.paddle.Account;
-import im.mak.paddle.actions.WriteData;
 import im.mak.paddle.exceptions.NodeError;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -11,10 +9,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
-import java.text.DecimalFormat;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 

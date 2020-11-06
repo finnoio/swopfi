@@ -1,5 +1,4 @@
 import com.wavesplatform.wavesj.Base58;
-import com.wavesplatform.wavesj.DataEntry;
 import com.wavesplatform.wavesj.transactions.InvokeScriptTransaction;
 import im.mak.paddle.Account;
 import im.mak.paddle.exceptions.NodeError;
@@ -12,7 +11,6 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
 import java.math.RoundingMode;
-import java.sql.SQLOutput;
 import java.util.stream.Stream;
 
 import ch.obermuhlner.math.big.BigDecimalMath;
@@ -36,10 +34,6 @@ public class SwopfiFlatTest {
     private int commissionGovernance = 200;
     private int commissionScaleDelimiter = 1000000;
     private int scaleValue8 = 100000000;
-    private int scaleValue8Digits = 8;
-    private long scaleValue12 = 1000000000000L;
-    private int ratioThresholdMax = 100000000;
-    private int ratioThresholdMin = 99999000;
     private double alpha = 0.5;
     private double betta = 0.46;
     private String version = "2.0.0";
@@ -332,7 +326,7 @@ public class SwopfiFlatTest {
 
         String invokeId = secondCaller.invokes(i -> i.dApp(exchanger).function("withdraw").payment(secondCallerShareBalance, shareTokenId).fee(1_00500000L)).getId().getBase58String();
         node().waitForTransaction(invokeId);
-        node().waitNBlocks(2);
+        node().waitNBlocks(1);
 
         assertAll("data and balances",
                 () -> assertThat(exchanger.dataInt("A_asset_balance")).isEqualTo(amountTokenABefore - tokensToPayA),
@@ -389,12 +383,12 @@ public class SwopfiFlatTest {
 
         BigDecimal xySum = BigDecimal.valueOf(x).add(BigDecimal.valueOf(y));
         BigDecimal xySumMultScaleValue = xySum.multiply(BigDecimal.valueOf(scaleValue8));
-        BigDecimal firstPow1 = BigDecimal.valueOf(Math.pow(sk / scaleValue8,alpha)).movePointRight(12).setScale(0,RoundingMode.UP);
-        BigDecimal firstTerm = xySumMultScaleValue.divide(firstPow1, 0,RoundingMode.DOWN);
+        BigDecimal firstPow = BigDecimal.valueOf(Math.pow(sk / scaleValue8,alpha)).movePointRight(12).setScale(0,RoundingMode.UP);
+        BigDecimal firstTerm = xySumMultScaleValue.divide(firstPow, 0,RoundingMode.DOWN);
         BigDecimal nestedFraction = (BigDecimal.valueOf(x).multiply(BigDecimal.valueOf(y))).divide(BigDecimal.valueOf(scaleValue8));
-        BigDecimal firstPow = BigDecimalMath.sqrt(nestedFraction, new MathContext(20)).setScale(4, RoundingMode.DOWN).movePointRight(4);
-        BigDecimal secondPow = BigDecimal.valueOf(Math.pow(sk - betta, alpha)).setScale(8, RoundingMode.DOWN).movePointRight(8);
-        BigDecimal fraction = firstPow.multiply(secondPow).divide(BigDecimal.valueOf(scaleValue8)).setScale(0, RoundingMode.DOWN);
+        BigDecimal secondPow = BigDecimalMath.sqrt(nestedFraction, new MathContext(20)).setScale(4, RoundingMode.DOWN).movePointRight(4);
+        BigDecimal thirdPow = BigDecimal.valueOf(Math.pow(sk - betta, alpha)).setScale(8, RoundingMode.DOWN).movePointRight(8);
+        BigDecimal fraction = secondPow.multiply(thirdPow).divide(BigDecimal.valueOf(scaleValue8)).setScale(0, RoundingMode.DOWN);
         return firstTerm.add(BigDecimal.valueOf(2).multiply(fraction)).setScale(0,RoundingMode.DOWN);
     }
 
