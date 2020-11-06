@@ -14,7 +14,7 @@ let keyShareAssetId = "share_asset_id"
 let keyShareAssetSupply = "share_asset_supply"
 let keyCommission = "commission"
 let keyCommissionScaleDelimiter = "commission_scale_delimiter"
-let keyCommissionGovernance = "commission_governance"
+let keyCause = "shutdown_cause"
 
 let adminPubKey1 = base58'${adminPubKey1}'
 let adminPubKey2 = base58'${adminPubKey2}'
@@ -28,6 +28,8 @@ let strAssetIdA = this.getStringValue(keyAssetIdA)
 let strAssetIdB = this.getStringValue(keyAssetIdB)
 let assetIdA = strAssetIdA.fromBase58String()
 let assetIdB = strAssetIdB.fromBase58String()
+let assetNameA = assetInfo(assetIdA).value().name
+let assetNameB = assetInfo(assetIdB).value().name
 let balanceA = this.getIntegerValue(keyBalanceA)
 let balanceB = this.getIntegerValue(keyBalanceB)
 let shareAssetId = this.getStringValue(keyShareAssetId).fromBase58String()
@@ -42,6 +44,8 @@ let scaleValue8 = 100000000
 let slippageToleranceDelimiter = 1000
 let scaleValue8Digits = 8
 
+let hasEnoughBalance = this.assetBalance(assetIdA) >= balanceA && this.assetBalance(assetIdB) >= balanceB
+
 func getAssetInfo(assetId: ByteVector|Unit) = match assetId {
     case id: ByteVector =>
         let stringId = id.toBase58String()
@@ -49,6 +53,11 @@ func getAssetInfo(assetId: ByteVector|Unit) = match assetId {
         (stringId, info.name, info.decimals)
     case waves: Unit => ("WAVES", "WAVES", 8)
 }
+
+func suspend(cause: String) = [
+    BooleanEntry(keyActive, false),
+    StringEntry(keyCause, cause)
+]
 
 @Callable(i)
 func init() = {
@@ -116,6 +125,9 @@ func replenishWithTwoTokens(slippageTolerance: Int) = {
         throw("Incorrect assets amount: amounts must have the contract ratio")
     else if shareTokenToPayAmount == 0 then
         throw("Too small amount to replenish")
+    else if !hasEnoughBalance then
+        suspend("Suspicious state. Actual balances: " + balanceA.toString() + " " + assetNameA + ", " + balanceB.toString() + " " + assetNameB
+        + ". State: " + this.assetBalance(assetIdA).toString() + " " + assetNameA + ", " + this.assetBalance(assetIdB).toString() + " " + assetNameB)
     else [
         IntegerEntry(keyBalanceA, balanceA + pmtAmountA),
         IntegerEntry(keyBalanceB, balanceB + pmtAmountB),
@@ -138,6 +150,9 @@ func withdraw() = {
         throw("One attached payment expected")
     else if pmtAssetId != shareAssetId then
         throw("Incorrect asset attached. Expected: " + shareAssetId.toBase58String())
+    else if !hasEnoughBalance then
+        suspend("Suspicious state. Actual balances: " + balanceA.toString() + " " + assetNameA + ", " + balanceB.toString() + " " + assetNameB
+        + ". State: " + this.assetBalance(assetIdA).toString() + " " + assetNameA + ", " + this.assetBalance(assetIdB).toString() + " " + assetNameB)
     else [
         IntegerEntry(keyBalanceA, balanceA - amountToPayA),
         IntegerEntry(keyBalanceB, balanceB - amountToPayB),
@@ -169,6 +184,9 @@ func exchange(minAmountToReceive: Int) = {
         throw("Minimal amount to receive must be positive. Actual: " + minAmountToReceive.toString())
     else if i.payments.size() != 1 then
         throw("One attached payment expected")
+    else if !hasEnoughBalance then
+        suspend("Suspicious state. Actual balances: " + balanceA.toString() + " " + assetNameA + ", " + balanceB.toString() + " " + assetNameB
+        + ". State: " + this.assetBalance(assetIdA).toString() + " " + assetNameA + ", " + this.assetBalance(assetIdB).toString() + " " + assetNameB)
     else if pmtAssetId == assetIdA then {
         let assetIdSend = assetIdB
         let (amountWithoutFee, amountWithFee, governanceReward) = calculateFees(balanceA, balanceB)
@@ -196,12 +214,17 @@ func exchange(minAmountToReceive: Int) = {
 }
 
 @Callable(i)
-func shutdown() = {
-    if [adminPubKey1, adminPubKey2, adminPubKey3].containsElement(i.callerPublicKey) then [
-        BooleanEntry(keyActive, false)
-    ] else
-        throw("Only admin can call this function")
-}
+func shutdown() = if [adminPubKey1, adminPubKey2, adminPubKey3].containsElement(i.callerPublicKey) then
+    suspend("Paused by admin")
+else
+    throw("Only admin can call this function")
+
+@Callable(i)
+func activate() = if [adminPubKey1, adminPubKey2, adminPubKey3].containsElement(i.callerPublicKey) then [
+    BooleanEntry(keyActive, true),
+    DeleteEntry(keyCause)
+] else
+    throw("Only admin can call this function")
 
 @Verifier(tx)
 func verify() = {
