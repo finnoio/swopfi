@@ -17,11 +17,11 @@ let keyCommissionScaleDelimiter = "commission_scale_delimiter"
 let keyCommissionGovernance = "commission_governance"
 let keyInvariant = "invariant"
 
-let adminPubKey1 = base58'289xpUrYrKbLjaKkqH3XNhfecukcYRaDRT3JDrvkvQRU'
-let adminPubKey2 = base58'289xpUrYrKbLjaKkqH3XNhfecukcYRaDRT3JDrvkvQRU'
-let adminPubKey3 = base58'289xpUrYrKbLjaKkqH3XNhfecukcYRaDRT3JDrvkvQRU'
+let adminPubKey1 = base58'${adminPubKey1}'
+let adminPubKey2 = base58'${adminPubKey2}'
+let adminPubKey3 = base58'${adminPubKey3}'
 
-let governanceAddress = Address(base58'3MS55nqhYKLbLZmRExmUN3H6RSWkr9c2VC5')
+let governanceAddress = Address(base58'${governanceAddress}')
 
 let isActive = this.getBooleanValue(keyActive)
 
