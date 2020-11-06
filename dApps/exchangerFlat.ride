@@ -28,16 +28,21 @@ let isActive = this.getBooleanValue(keyActive)
 
 let strAssetIdA = this.getStringValue(keyAssetIdA)
 let strAssetIdB = this.getStringValue(keyAssetIdB)
-let assetIdA = strAssetIdA.fromBase58String()
-let assetIdB = strAssetIdB.fromBase58String()
+let assetIdA = if strAssetIdA == "WAVES" then unit else strAssetIdA.fromBase58String()
+let assetIdB = if strAssetIdB == "WAVES" then unit else strAssetIdB.fromBase58String()
+let assetNameA = match assetIdA {
+    case id: ByteVector => assetInfo(id).value().name
+    case waves: Unit => "WAVES"
+}
+let assetNameB = match assetIdB {
+    case id: ByteVector => assetInfo(id).value().name
+    case waves: Unit => "WAVES"
+}
 let balanceA = this.getIntegerValue(keyBalanceA)
 let balanceB = this.getIntegerValue(keyBalanceB)
 let shareAssetId = this.getStringValue(keyShareAssetId).fromBase58String()
 let shareAssetSupply = this.getIntegerValue(keyShareAssetSupply)
 let invariant = this.getIntegerValue(keyInvariant)
-
-let assetNameA = assetInfo(assetIdA).value().name
-let assetNameB = assetInfo(assetIdB).value().name
 
 let commission = 500 #commission/commissionScaleDelimiter = 0.0005
 let commissionGovernance = 200 # commissionGovernance/commissionScaleDelimiter = 0.0002. 3/5 fee back to the dApp, 2/5 sends to the governance address
@@ -61,7 +66,12 @@ let alphaDigits = 2
 let beta = 46000000 # model coefficient beta = 0.46 with 8 digits
 let betaDigits = 8
 
-let hasEnoughBalance = this.assetBalance(assetIdA) >= balanceA && this.assetBalance(assetIdB) >= balanceB
+func accountBalance(assetId: ByteVector|Unit) = match assetId {
+    case id: ByteVector => this.assetBalance(id)
+    case waves: Unit => this.wavesBalance().available
+}
+
+let hasEnoughBalance = accountBalance(assetIdA) >= balanceA && accountBalance(assetIdB) >= balanceB
 
 # skewness = 0.5*(x/y+y/x)
 # Each fraction multiple by scaleValue in order to avoid zeroing
@@ -235,7 +245,7 @@ func replenishWithTwoTokens(slippageTolerance: Int) = {
         throw("Too small amount to replenish")
     else if !hasEnoughBalance then
         suspend("Suspicious state. Actual balances: " + balanceA.toString() + " " + assetNameA + ", " + balanceB.toString() + " " + assetNameB
-        + ". State: " + this.assetBalance(assetIdA).toString() + " " + assetNameA + ", " + this.assetBalance(assetIdB).toString() + " " + assetNameB)
+        + ". State: " + accountBalance(assetIdA).toString() + " " + assetNameA + ", " + accountBalance(assetIdB).toString() + " " + assetNameB)
     else [
         IntegerEntry(keyBalanceA, balanceA + pmtAmountA),
         IntegerEntry(keyBalanceB, balanceB + pmtAmountB),
@@ -260,7 +270,7 @@ func replenishWithOneToken(virtualSwapTokenPay: Int, virtualSwapTokenGet: Int) =
         throw("One attached payment expected")
     else if !hasEnoughBalance then
         suspend("Suspicious state. Actual balances: " + balanceA.toString() + " " + assetNameA + ", " + balanceB.toString() + " " + assetNameB
-        + ". State: " + this.assetBalance(assetIdA).toString() + " " + assetNameA + ", " + this.assetBalance(assetIdB).toString() + " " + assetNameB)
+        + ". State: " + accountBalance(assetIdA).toString() + " " + assetNameA + ", " + accountBalance(assetIdB).toString() + " " + assetNameB)
     else if pmtAssetId == assetIdA then {
         let amountVirtualReplenishTokenA = pmtAmount - virtualSwapTokenPay
         let amountVirtualReplenishTokenB = virtualSwapTokenGet
@@ -338,7 +348,7 @@ func withdraw() = {
         throw("Incorrect asset attached. Expected: " + shareAssetId.toBase58String())
     else if !hasEnoughBalance then
         suspend("Suspicious state. Actual balances: " + balanceA.toString() + " " + assetNameA + ", " + balanceB.toString() + " " + assetNameB
-        + ". State: " + this.assetBalance(assetIdA).toString() + " " + assetNameA + ", " + this.assetBalance(assetIdB).toString() + " " + assetNameB)
+        + ". State: " + accountBalance(assetIdA).toString() + " " + assetNameA + ", " + accountBalance(assetIdB).toString() + " " + assetNameB)
     else [
         IntegerEntry(keyBalanceA, balanceA - amountToPayA),
         IntegerEntry(keyBalanceB, balanceB - amountToPayB),
@@ -364,7 +374,7 @@ func exchange(estimatedAmountToReceive: Int, minAmountToReceive: Int) = {
         throw("One attached payment expected")
     else if !hasEnoughBalance then
         suspend("Suspicious state. Actual balances: " + balanceA.toString() + " " + assetNameA + ", " + balanceB.toString() + " " + assetNameB
-        + ". State: " + this.assetBalance(assetIdA).toString() + " " + assetNameA + ", " + this.assetBalance(assetIdB).toString() + " " + assetNameB)
+        + ". State: " + accountBalance(assetIdA).toString() + " " + assetNameA + ", " + accountBalance(assetIdB).toString() + " " + assetNameB)
     else if pmtAssetId == assetIdA then {
         let assetIdSend = assetIdB
         let amountWithoutFee = calculateHowManySendTokenB(estimatedAmountToReceive, minAmountToReceive, balanceA, balanceB, pmtAmount)
