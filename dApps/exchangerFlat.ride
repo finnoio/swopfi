@@ -16,6 +16,7 @@ let keyCommission = "commission"
 let keyCommissionScaleDelimiter = "commission_scale_delimiter"
 let keyCommissionGovernance = "commission_governance"
 let keyInvariant = "invariant"
+let keyCause = "shutdown_cause"
 
 let adminPubKey1 = base58'${adminPubKey1}'
 let adminPubKey2 = base58'${adminPubKey2}'
@@ -59,6 +60,8 @@ let alpha = 50 # model coefficient alpha = 0.15 with 2 digits
 let alphaDigits = 2
 let beta = 46000000 # model coefficient beta = 0.46 with 8 digits
 let betaDigits = 8
+
+let hasEnoughBalance = this.assetBalance(assetIdA) >= balanceA && this.assetBalance(assetIdB) >= balanceB
 
 # skewness = 0.5*(x/y+y/x)
 # Each fraction multiple by scaleValue in order to avoid zeroing
@@ -152,6 +155,11 @@ func getAssetInfo(assetId: ByteVector|Unit) = match assetId {
     case waves: Unit => ("WAVES", "WAVES", 8)
 }
 
+func suspend(cause: String) = [
+    BooleanEntry(keyActive, false),
+    StringEntry(keyCause, cause)
+]
+
 @Callable(i)
 func init() = {
     let (pmtAmountA, pmtAssetIdA) = (i.payments[0].amount, i.payments[0].assetId)
@@ -225,6 +233,9 @@ func replenishWithTwoTokens(slippageTolerance: Int) = {
         throw("Incorrect assets amount: amounts must have the contract ratio")
     else if shareTokenToPayAmount == 0 then
         throw("Too small amount to replenish")
+    else if !hasEnoughBalance then
+        suspend("Suspicious state. Actual balances: " + balanceA.toString() + " " + assetNameA + ", " + balanceB.toString() + " " + assetNameB
+        + ". State: " + this.assetBalance(assetIdA).toString() + " " + assetNameA + ", " + this.assetBalance(assetIdB).toString() + " " + assetNameB)
     else [
         IntegerEntry(keyBalanceA, balanceA + pmtAmountA),
         IntegerEntry(keyBalanceB, balanceB + pmtAmountB),
@@ -247,6 +258,9 @@ func replenishWithOneToken(virtualSwapTokenPay: Int, virtualSwapTokenGet: Int) =
         throw("DApp is inactive at this moment")
     else if i.payments.size() != 1 then
         throw("One attached payment expected")
+    else if !hasEnoughBalance then
+        suspend("Suspicious state. Actual balances: " + balanceA.toString() + " " + assetNameA + ", " + balanceB.toString() + " " + assetNameB
+        + ". State: " + this.assetBalance(assetIdA).toString() + " " + assetNameA + ", " + this.assetBalance(assetIdB).toString() + " " + assetNameB)
     else if pmtAssetId == assetIdA then {
         let amountVirtualReplenishTokenA = pmtAmount - virtualSwapTokenPay
         let amountVirtualReplenishTokenB = virtualSwapTokenGet
@@ -322,6 +336,9 @@ func withdraw() = {
         throw("One attached payment expected")
     else if pmtAssetId != shareAssetId then
         throw("Incorrect asset attached. Expected: " + shareAssetId.toBase58String())
+    else if !hasEnoughBalance then
+        suspend("Suspicious state. Actual balances: " + balanceA.toString() + " " + assetNameA + ", " + balanceB.toString() + " " + assetNameB
+        + ". State: " + this.assetBalance(assetIdA).toString() + " " + assetNameA + ", " + this.assetBalance(assetIdB).toString() + " " + assetNameB)
     else [
         IntegerEntry(keyBalanceA, balanceA - amountToPayA),
         IntegerEntry(keyBalanceB, balanceB - amountToPayB),
@@ -345,6 +362,9 @@ func exchange(estimatedAmountToReceive: Int, minAmountToReceive: Int) = {
         throw("Minimal amount can't be greater than estimated. Estimated: " + estimatedAmountToReceive.toString() + ". Minimal: " + minAmountToReceive.toString())
     else if i.payments.size() != 1 then
         throw("One attached payment expected")
+    else if !hasEnoughBalance then
+        suspend("Suspicious state. Actual balances: " + balanceA.toString() + " " + assetNameA + ", " + balanceB.toString() + " " + assetNameB
+        + ". State: " + this.assetBalance(assetIdA).toString() + " " + assetNameA + ", " + this.assetBalance(assetIdB).toString() + " " + assetNameB)
     else if pmtAssetId == assetIdA then {
         let assetIdSend = assetIdB
         let amountWithoutFee = calculateHowManySendTokenB(estimatedAmountToReceive, minAmountToReceive, balanceA, balanceB, pmtAmount)
@@ -394,12 +414,17 @@ func exchange(estimatedAmountToReceive: Int, minAmountToReceive: Int) = {
 }
 
 @Callable(i)
-func shutdown() = {
-    if [adminPubKey1, adminPubKey2, adminPubKey3].containsElement(i.callerPublicKey) then [
-        BooleanEntry(keyActive, false)
-    ] else
-        throw("Only admin can call this function")
-}
+func shutdown() = if [adminPubKey1, adminPubKey2, adminPubKey3].containsElement(i.callerPublicKey) then
+    suspend("Paused by admin")
+else
+    throw("Only admin can call this function")
+
+@Callable(i)
+func activate() = if [adminPubKey1, adminPubKey2, adminPubKey3].containsElement(i.callerPublicKey) then [
+    BooleanEntry(keyActive, true),
+    DeleteEntry(keyCause)
+] else
+    throw("Only admin can call this function")
 
 @Verifier(tx)
 func verify() = {
