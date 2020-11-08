@@ -29,6 +29,8 @@ pw.setNode(node="https://nodes-stagenet.wavesnodes.com", chain_id="S")
     
 test2 = pw.Address(seed = "as1sas2222223222")
 moneySeed = pw.Address(seed = "mutual essence merry loop margin morning involve vicious air post table faculty primary idea buffalo")
+print(test2)
+print(moneySeed)
 
 # transfer = moneySeed.sendWaves(test2,int(10**8))
 # wait_for_resource_available(transfer["id"],1000)
@@ -46,12 +48,12 @@ moneySeed = pw.Address(seed = "mutual essence merry loop margin morning involve 
 #     fund["id"], 100)
 # print(fund)
 
-replanish = moneySeed.invokeScript(test2.address, "replenishmentWithTwoToken", [{"type": "integer", "value": int(10) }], [
-    {"amount": 100000
-, "assetId": "4zhPJWeFuPGHfQBsVctk5wqNCRoNVqGtT4YnvKJX6tVN"},{"amount": 100000-1, "assetId": None}], txFee=1000000)
-print(replanish)
-statusreplanish = wait_for_resource_available(
-    replanish["id"], 1000)
+# replanish = moneySeed.invokeScript(test2.address, "replenishmentWithTwoToken", [{"type": "integer", "value": int(10) }], [
+#     {"amount": 100000
+# , "assetId": "4zhPJWeFuPGHfQBsVctk5wqNCRoNVqGtT4YnvKJX6tVN"},{"amount": 100000-1, "assetId": None}], txFee=1000000)
+# print(replanish)
+# statusreplanish = wait_for_resource_available(
+#     replanish["id"], 1000)
 
 
 
