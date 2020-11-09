@@ -268,7 +268,7 @@ func replenishWithOneToken(virtualSwapTokenPay: Int, virtualSwapTokenGet: Int) =
     let slippageValueMinForReplenish = scaleValue8 - scaleValue8 * tolerance / 10000000 # if pmtAmount > 50.000000 then slippage = 0.000001%
     let slippageValueMaxForReplenish = scaleValue8 + scaleValue8 * tolerance/ 10000000
     
-    let slippageValueMinForSwap = scaleValue8 - scaleValue8 * 1 / 10000000 # if pmtAmount > 50.000000 then slippage = 0.000001%
+    let slippageValueMinForSwap = scaleValue8 - scaleValue8 * 1 / 10000000 
     let slippageValueMaxForSwap = scaleValue8 + scaleValue8 * 1/ 10000000
 
     if !isActive then
@@ -404,7 +404,7 @@ func exchange(estimatedAmountToReceive: Int, minAmountToReceive: Int) = {
 
         let newAmountTokenA = balanceA + pmtAmount
         let newAmountTokenB = balanceB - amountWithFee - governanceReward
-        let dAppThresholdAmount = fraction(balanceA + balanceB, dAppThreshold, 2 * dAppThresholdDelimiter)
+        let dAppThresholdAmount = fraction(newAmountTokenA + newAmountTokenB, dAppThreshold, 2 * dAppThresholdDelimiter)
 
         if newAmountTokenA < dAppThresholdAmount || newAmountTokenB < dAppThresholdAmount then
             throw("New balance in assets of the DApp is less than threshold " + dAppThresholdAmount.toString()
@@ -426,7 +426,7 @@ func exchange(estimatedAmountToReceive: Int, minAmountToReceive: Int) = {
 
         let newAmountTokenA = balanceA - amountWithFee - governanceReward
         let newAmountTokenB = balanceB + pmtAmount
-        let dAppThresholdAmount = fraction(balanceA + balanceB, dAppThreshold, 2 * dAppThresholdDelimiter)
+        let dAppThresholdAmount = fraction(newAmountTokenA + newAmountTokenB, dAppThreshold, 2 * dAppThresholdDelimiter)
 
         if newAmountTokenA < dAppThresholdAmount || newAmountTokenB < dAppThresholdAmount then
             throw("New balance in assets of the DApp is less than threshold " + dAppThresholdAmount.toString()
