@@ -56,7 +56,7 @@ let slippageToleranceDelimiter = 1000
 let scaleValue8Digits = 8
 let scaleValue12Digits = 12
 
-let dAppThreshold = 80 # dAppThresholdAmount/dAppThresholdAmountDelimiter = 0.8
+let dAppThreshold = 50 # dAppThresholdAmount/dAppThresholdAmountDelimiter = 0.5
 let dAppThresholdDelimiter = 100
 
 let ratioThresholdMax = 100000000
