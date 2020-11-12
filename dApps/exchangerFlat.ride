@@ -272,7 +272,7 @@ func replenishWithOneToken(virtualSwapTokenPay: Int, virtualSwapTokenGet: Int) =
     let slippageValueMaxForSwap = scaleValue8 + scaleValue8 * 1/ 10000000
     if pmtAmount < 1000 then  
         throw("The exchange amount does not exceed the minimum amount of 0.001")
-    if !isActive then
+    else if !isActive then
         throw("DApp is inactive at this moment")
     else if i.payments.size() != 1 then
         throw("One attached payment expected")
