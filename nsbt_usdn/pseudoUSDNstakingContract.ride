@@ -1,0 +1,13 @@
+{-# STDLIB_VERSION 4 #-}
+{-# CONTENT_TYPE DAPP #-}
+{-# SCRIPT_TYPE ACCOUNT #-}
+
+
+@Callable(i)
+func stake() = {
+    let (pmtAmountA, pmtAssetIdA) = (i.payments[0].amount, i.payments[0].assetId)
+        [
+            IntegerEntry("rpd_balance_" + toBase58String(pmtAssetIdA.value()) + "_" + toString(i.caller), pmtAmountA)
+        ]
+    }
+
