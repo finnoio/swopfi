@@ -78,7 +78,7 @@ func getUserInterestInfo(pool:String, userAddress:Address) = {
     (userLastInterestValue,userShareTokensAmount)
 }
 
-func calcInterest(lastInterestHeight:Int,rewardUpdateHeight:Int,lastInterest:Int,currentRewardPerBlock:Int,shareTokenLocked:Int,previousRewardPerBlock:Int,shareAssetId:ByteVector,scaleValue:Int) = {
+func calcInterest(lastInterestHeight:Int,rewardUpdateHeight:Int,lastInterest:Int,currentRewardPerBlock:Int,shareTokenLocked:Int,previousRewardPerBlock:Int,shareAssetId:ByteVector,scaleValue:Int,pmtAmount:Int) = {
     if (lastInterestHeight > rewardUpdateHeight) then
         if shareTokenLocked == 0 then 0 else # this condition true only for the first call
             let reward = currentRewardPerBlock*(height-lastInterestHeight)
@@ -90,14 +90,14 @@ func calcInterest(lastInterestHeight:Int,rewardUpdateHeight:Int,lastInterest:Int
         interestAfterUpdate + fraction(reward,scaleValue,shareTokenLocked) # interests[n] = interests[n-1] + reward[n] / totalSupplyLP(n)
 }
 
-func claimCalc(pool:String,caller:Address) = {
+func claimCalc(pool:String,caller:Address,pmtAmount:Int) = {
     let shareAssetId = getShareAssetId(pool)
     let scaleValue = calcScaleValue(SWOP,shareAssetId) # return scale8 value with considering digits in assets
     let shareTokenLocked = getTotalShareTokenLocked(pool)
     let (lastInterestHeight,lastInterest) = getLastInterestInfo(pool)
     let (currentRewardPerBlock,rewardUpdateHeight,previousRewardPerBlock) = rewardInfo(pool)
     let (userLastInterest,userShareTokensAmount) = getUserInterestInfo(pool,caller)
-    let currentInterest = calcInterest(lastInterestHeight,rewardUpdateHeight,lastInterest,currentRewardPerBlock,shareTokenLocked,previousRewardPerBlock,shareAssetId,scaleValue) # multiple by scale8
+    let currentInterest = calcInterest(lastInterestHeight,rewardUpdateHeight,lastInterest,currentRewardPerBlock,shareTokenLocked,previousRewardPerBlock,shareAssetId,scaleValue,pmtAmount) # multiple by scale8
     let claimAmount = fraction(userShareTokensAmount,currentInterest-userLastInterest,scaleValue)
     let userNewInterest = currentInterest
     (userNewInterest,currentInterest,claimAmount,userShareTokensAmount)
@@ -112,14 +112,15 @@ func getUserSWOPClaimedAmount(pool:String,user:Address) =  this.getInteger(pool 
                                                 .valueOrElse(0)
 
 @Callable(i)
-func init() = {
-    if this.getString(keySWOPid).isDefined() then throw("init already called") else
+func init(earlyLP:String) = {
+    if this.getString("keySWOPid").isDefined() then throw("SWOP already initialized") else  
     let initAmount = 100000000000000
     let SWOPissue = Issue("SWOP", "SWOP protocol token", initAmount, 8, true)
     let SWOPid = SWOPissue.calculateAssetId()
     [
         Issue("SWOP", "SWOP protocol token", initAmount, 8, true),
-        StringEntry(keySWOPid, SWOPid.toBase58String())
+        StringEntry(keySWOPid, SWOPid.toBase58String()),
+        ScriptTransfer(earlyLP.addressFromStringValue(),initAmount,SWOPid)
     ]
 }
 
@@ -156,7 +157,7 @@ func lockShareTokens(pool:String) = {
         ]
     else
         if !checkPmtAssetIdCorrect(pool,pmtAssetId) then throw("Incorrect pmtAssetId") else
-        let (userNewInterest,currentInterest,claimAmount,userShareTokensAmount) = claimCalc(pool,i.caller)
+        let (userNewInterest,currentInterest,claimAmount,userShareTokensAmount) = claimCalc(pool,i.caller,pmtAmount)
         let userShareAmountNew = userShareTokensAmount+pmtAmount
         let availableFundsNew = userAvailableSWOP(pool,i.caller) + claimAmount
         let totalShareAmount = getTotalShareTokenLocked(pool)
@@ -166,11 +167,11 @@ func lockShareTokens(pool:String) = {
         [
             IntegerEntry(pool + "_" + i.caller.toString() + keyUserLastInterest, userNewInterest),
             IntegerEntry(pool + "_" + i.caller.toString() + keyUserShareTokensLocked, userShareAmountNew),
-            IntegerEntry(pool +  keyLastInterest, currentInterest),
+            IntegerEntry(pool + keyLastInterest, currentInterest),
             IntegerEntry(pool + keyLastInterestHeight, height),
             IntegerEntry(pool + keyShareTokensLocked,totalShareAmountNew),
             IntegerEntry(pool + "_" + i.caller.toString() + keyUserSWOPClaimedAmount, userClaimedAmountNew),
-            IntegerEntry(pool + "_" + i.caller.toString() + keyUserSWOPLastClaimedAmount, userClaimedAmount),
+            IntegerEntry(pool + "_" + i.caller.toString() + keyUserSWOPLastClaimedAmount, claimAmount),
             IntegerEntry(pool + "_" + i.caller.toString() + keyAvailableSWOP, availableFundsNew)
         ]
 }
@@ -194,7 +195,7 @@ func withdrawShareTokens(pool:String,shareTokensWithdrawAmount:Int) = {
             ScriptTransfer(i.caller, shareTokensWithdrawAmount, shareTokensId)
         ]
     else
-        let (userNewInterest,currentInterest,claimAmount,userShareTokensAmount) = claimCalc(pool,i.caller)
+        let (userNewInterest,currentInterest,claimAmount,userShareTokensAmount) = claimCalc(pool,i.caller,1)
         if shareTokensWithdrawAmount > userShareTokensAmount then throw("Withdraw amount more then user locked amount") else
         let userShareAmountNew = userShareTokensAmount-shareTokensWithdrawAmount
         let availableFundsNew = userAvailableSWOP(pool,i.caller) + claimAmount
@@ -210,7 +211,7 @@ func withdrawShareTokens(pool:String,shareTokensWithdrawAmount:Int) = {
             IntegerEntry(pool + keyShareTokensLocked, totalShareAmountNew),
             IntegerEntry(pool+"_"+i.caller.toString() + keyAvailableSWOP, availableFundsNew),
             IntegerEntry(pool + "_" + i.caller.toString() + keyUserSWOPClaimedAmount, userClaimedAmountNew),
-            IntegerEntry(pool + "_" + i.caller.toString() + keyUserSWOPLastClaimedAmount, userClaimedAmount),
+            IntegerEntry(pool + "_" + i.caller.toString() + keyUserSWOPLastClaimedAmount, claimAmount),
             ScriptTransfer(i.caller, shareTokensWithdrawAmount, shareTokensId)
         ]
 }
@@ -221,10 +222,11 @@ func claim(pool:String) = {
     let shareTokenLocked = getTotalShareTokenLocked(pool)
     let (lastInterestHeight,lastInterest) = getLastInterestInfo(pool)
     let (currentRewardPerBlock, rewardUpdateHeight,previousRewardPerBlock) = rewardInfo(pool)
-    let (userNewInterest,currentInterest,claimAmount,userShareTokensAmount) = claimCalc(pool,i.caller)
+    let (userNewInterest,currentInterest,claimAmount,userShareTokensAmount) = claimCalc(pool,i.caller,1)
     let availableFund = userAvailableSWOP(pool,i.caller) + claimAmount
     let userClaimedAmount = getUserSWOPClaimedAmount(pool,i.caller)
     let userClaimedAmountNew = userClaimedAmount + claimAmount
+    if availableFund == 0 then throw("You have 0 available SWOP") else
     [
         IntegerEntry(pool + "_" + i.caller.toString() + keyUserLastInterest, userNewInterest),
         IntegerEntry(pool + keyLastInterest, currentInterest),
@@ -232,7 +234,7 @@ func claim(pool:String) = {
         IntegerEntry(pool + "_" + i.caller.toString() + keyAvailableSWOP, 0),
         Reissue(SWOP, availableFund, true),
         IntegerEntry(pool + "_" + i.caller.toString() + keyUserSWOPClaimedAmount, userClaimedAmountNew),
-        IntegerEntry(pool + "_" + i.caller.toString() + keyUserSWOPLastClaimedAmount, userClaimedAmount),
+        IntegerEntry(pool + "_" + i.caller.toString() + keyUserSWOPLastClaimedAmount, claimAmount),
         ScriptTransfer(i.caller, availableFund, SWOP)
     ]
 }
